@@ -1,4 +1,3 @@
-
 pub type Address = [u8; 32];
 
 #[derive(Copy, Clone)]

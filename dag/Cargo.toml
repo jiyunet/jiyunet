@@ -1,5 +1,5 @@
 [package]
-name = "libjiyunet-mesh"
+name = "libjiyunet-dag"
 version = "0.1.0"
 authors = ["treyzania <treyzania@gmail.com>"]
 
