@@ -1,3 +1,5 @@
+use ident;
+
 pub type Address = [u8; 32];
 
 #[derive(Copy, Clone)]
@@ -10,16 +12,14 @@ pub struct Signature {
 pub struct Block {
     sig: Signature,
     version: u32,
+    timestamp: i64,
     parents: Vec<Address>,
     segments: Vec<Segment>
 }
 
 #[derive(Clone)]
-pub struct Identity; // TODO Determine how to deal with declaring public keys.  RSA-2048?
-
-#[derive(Clone)]
 pub enum SegmentContent {
-    IdentDecl(Identity),
+    IdentDecl(ident::Identity),
     Artifact(ArtifactData),
     ArtifactPointer(Address)
 }
@@ -27,6 +27,7 @@ pub enum SegmentContent {
 #[derive(Clone)]
 pub struct Segment {
     sig: Signature,
+    timestamp: i64,
     content: SegmentContent
 }
 
@@ -40,5 +41,6 @@ pub struct ArtifactData {
 #[derive(Clone)]
 pub struct Container {
     sig: Signature,
+    timestamp: i64,
     art: ArtifactData
 }
