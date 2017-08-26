@@ -1,65 +1,20 @@
-use ident;
+use sig;
 
-use crypto::sha2;
-use crypto::digest::Digest;
-
-pub type Address = ident::Hash;
-
-#[derive(Copy, Clone)]
-pub struct Signature {
-    hash_sig: ident::HashSig,
-    author: ident::Hash
-}
-
-impl Signature {
-    pub fn to_blob(&self) -> Vec<u8> {
-
-        let mut buf = Vec::new();
-        buf.extend_from_slice(&self.hash_sig);
-        buf.extend_from_slice(&self.author);
-        buf
-
-    }
-}
-
-pub struct DecodeError;
-
-pub trait DagComponent where Self: Clone {
-
-    fn from_blob(data: &[u8]) -> Result<Self, DecodeError>;
-    fn to_blob(&self) -> Vec<u8>;
-
-    fn get_hash(&self) -> ident::Hash {
-
-        let mut hasher = sha2::Sha256::new();
-        hasher.input(self.to_blob().as_slice());
-
-        let mut hashed: [u8; 32] = Default::default();
-        hasher.result(&mut hashed);
-        hashed
-
-    }
-
-    fn to_signed(self, kp: ident::Keypair) -> Signed<Self> {
-        Signed::new(kp, self)
-    }
-
-}
+use Address;
+use DagComponent;
+use DecodeError;
 
 #[derive(Clone)]
 pub struct Signed<T> where T: DagComponent {
-    sig: Signature,
+    signature: sig::Signature,
     body: T
 }
 
 impl<T> Signed<T> where T: DagComponent {
 
-    pub fn new(kp: ident::Keypair, body: T) -> Signed<T> {
+    pub fn new(kp: sig::Keypair, body: T) -> Signed<T> {
         Signed {
-            sig: Signature {
-                hash_sig: kp.sign(body.get_hash()),
-                author: kp.fingerprint()
-            },
+            signature: unimplemented!(),
             body: body
         }
     }
@@ -79,7 +34,7 @@ impl<T> DagComponent for Signed<T> where T: DagComponent {
     fn to_blob(&self) -> Vec<u8> {
 
         let mut buf = Vec::new();
-        buf.append(&mut self.sig.to_blob());
+        buf.append(&mut self.signature.to_blob());
         buf.append(&mut self.body.to_blob());
         buf
 
@@ -109,7 +64,7 @@ impl DagComponent for Block {
 
 #[derive(Clone)]
 pub enum SegmentContent {
-    IdentDecl(ident::Identity),
+    IdentDecl(sig::Hash),
     Artifact(ArtifactData),
     ArtifactPointer(Address)
 }
