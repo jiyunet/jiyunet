@@ -31,6 +31,11 @@ impl Hash {
         Fingerprint(self)
     }
 
+    pub fn info_array(self) -> [u8; SHA256_WIDTH] {
+        let Hash(h) = self;
+        h
+    }
+
 }
 
 impl Clone for Hash {
@@ -58,6 +63,63 @@ impl Fingerprint {
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Scheme {
+    Ed25519
+}
+
+impl Scheme {
+
+    pub fn generate(self, seed: &[u8]) -> Keypair {
+        match self {
+            Scheme::Ed25519 => {
+                let (kpriv, kpub) = ed25519::keypair(seed);
+                Keypair::Ed25519(kpriv, kpub)
+            }
+        }
+    }
+
+    fn to_specifier(&self) -> u8 {
+        use self::Scheme::*;
+        match self {
+            &Ed25519 => 0x00
+        }
+    }
+
+    fn from_specifier(s: u8) -> Option<Scheme> {
+        use self::Scheme::*;
+        match s {
+            0x00 => Some(Ed25519),
+            _ => None
+        }
+    }
+
+}
+
+#[derive(Copy)]
+pub enum Keypair {
+    Ed25519([u8; 64], [u8; 32])
+}
+
+impl Clone for Keypair {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl Keypair {
+
+    pub fn sign(&self, hash: Hash) -> Signature {
+        match self {
+            &Keypair::Ed25519(kpriv, kpub) => {
+                let q = ed25519::signature(&hash.info_array(), &kpriv);
+                Signature::Ed25519(q, Fingerprint::new(kpub))
+            }
+        }
+    }
+
+}
+
 #[derive(Copy)]
 pub enum Signature {
     Ed25519([u8; 64], Fingerprint)
@@ -71,10 +133,10 @@ impl Clone for Signature {
 
 impl Signature {
 
-    pub fn specifier(&self) -> u8 {
+    fn scheme(&self) -> Scheme {
         use self::Signature::*;
         match self {
-            &Ed25519(_, _) => 0
+            &Ed25519(_, _) => Scheme::Ed25519
         }
     }
 
@@ -90,28 +152,33 @@ impl DagComponent for Signature {
 
     fn from_blob(data: &[u8]) -> Result<Self, DecodeError> {
         use self::Signature::*;
-        match data[0] {
-            0 => {
-                if data.len() > 64 + 32 + 1 { // FIXME This is such a bad way to do it.
+        let sig_data = &data[1..];
+        match Scheme::from_specifier(data[0]) {
+            Some(s) => match s {
+                Scheme::Ed25519 => {
 
-                    let mut tok = [0; 64];
-                    for i in 0..64 {
-                        tok[i] = data[i];
+                    // FIXME Make this more functional.  It looks horrible as-is.
+                    if sig_data.len() > (64 + 32) {
+
+                        let mut hex = [0; 64];
+                        for i in 0..64 {
+                            hex[i] = sig_data[i]
+                        }
+
+                        let mut fp = [0; 32];
+                        for i in 0..32 {
+                            fp[i] = sig_data[i + 64];
+                        }
+
+                        Ok(Ed25519(hex, Fingerprint::new(fp)))
+
+                    } else {
+                        Err(DecodeError)
                     }
 
-                    let mut fp = [0; 32];
-                    for i in 0..32 {
-                        fp[i] = data[i + 64];
-                    }
-
-                    Ok(Ed25519(tok, Fingerprint::new(fp)))
-                    
-                } else {
-                    Err(DecodeError)
                 }
-
-            }
-            _ => Err(DecodeError)
+            },
+            None => Err(DecodeError)
         }
     }
 
@@ -120,7 +187,7 @@ impl DagComponent for Signature {
         use self::Signature::*;
 
         let mut buf = Vec::new();
-        buf.push(self.specifier());
+        buf.push(self.scheme().to_specifier());
 
         match self {
             &Ed25519(t, f) => {
@@ -134,10 +201,3 @@ impl DagComponent for Signature {
     }
 
 }
-
-/// Scheme(private, public)
-pub enum Keypair {
-    Ed25519([u8; 64], [u8; 32])
-}
-
-// TODO Write implementation to deal with signing and stuff for Keypairs.

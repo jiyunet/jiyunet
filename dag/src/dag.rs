@@ -14,7 +14,7 @@ impl<T> Signed<T> where T: DagComponent {
 
     pub fn new(kp: sig::Keypair, body: T) -> Signed<T> {
         Signed {
-            signature: unimplemented!(),
+            signature: kp.sign(body.get_hash()),
             body: body
         }
     }
@@ -28,7 +28,18 @@ impl<T> Signed<T> where T: DagComponent {
 impl<T> DagComponent for Signed<T> where T: DagComponent {
 
     fn from_blob(data: &[u8]) -> Result<Self, DecodeError> {
-        unimplemented!();
+
+        let sr = sig::Signature::from_blob(data);
+        if sr.is_err() {
+            return Err(DecodeError); // Error out immediately.
+        }
+
+        let sig = sr.ok().unwrap();
+        match T::from_blob(&data[sig.to_blob().len()..]) { // FIXME Not the best way to do this.
+            Ok(b) => Ok(Signed { signature: sig, body: b }),
+            Err(_) => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
