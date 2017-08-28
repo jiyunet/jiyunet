@@ -2,6 +2,7 @@ use sig;
 
 use Address;
 use DagComponent;
+use DagNode;
 use DecodeError;
 
 #[derive(Clone)]
@@ -73,6 +74,18 @@ impl DagComponent for Block {
 
 }
 
+impl DagNode for Signed<Block> {
+
+    fn version(&self) -> u32 {
+        self.body.version
+    }
+
+    fn timestamp(&self) -> i64 {
+        self.body.timestamp
+    }
+
+}
+
 #[derive(Clone)]
 pub enum SegmentContent {
     IdentDecl(sig::Hash),
@@ -100,7 +113,7 @@ impl DagComponent for Segment {
 
 #[derive(Clone)]
 pub struct ArtifactData {
-    spec: u16,
+    spec: u16, // Artifact code.  Big-endian 0xXXXY, where X is the namespace and Y is the subtype.
     body: Vec<u8> // Actual artifact format is specified in a higher layer.
 }
 
@@ -112,6 +125,37 @@ impl DagComponent for ArtifactData {
 
     fn to_blob(&self) -> Vec<u8> {
         unimplemented!();
+    }
+
+}
+
+#[derive(Clone)]
+pub struct ArtifactContainer {
+    version: u32,
+    timestamp: i64,
+    content: SegmentContent
+}
+
+impl DagComponent for ArtifactContainer {
+
+    fn from_blob(_: &[u8]) -> Result<Self, DecodeError> {
+        unimplemented!();
+    }
+
+    fn to_blob(&self) -> Vec<u8> {
+        unimplemented!();
+    }
+
+}
+
+impl DagNode for Signed<ArtifactContainer> {
+
+    fn version(&self) -> u32 {
+        self.body.version
+    }
+
+    fn timestamp(&self) -> i64 {
+        self.body.timestamp
     }
 
 }

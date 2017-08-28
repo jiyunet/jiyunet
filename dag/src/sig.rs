@@ -3,12 +3,23 @@ use crypto::{sha2, ed25519};
 use crypto::digest::Digest;
 
 use DagComponent;
+use DagNode;
 use DecodeError;
 
 pub const SHA256_WIDTH: usize = 32;
 
-#[derive(Copy)]
+#[derive(Copy, Eq, Ord, PartialOrd, Hash)]
 pub struct Hash([u8; SHA256_WIDTH]);
+
+impl PartialEq for Hash {
+    fn eq(&self, other: &Self) -> bool {
+
+        let &Hash(a) = self;
+        let &Hash(b) = other;
+        a == b
+
+    }
+}
 
 impl Hash {
 
