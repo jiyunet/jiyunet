@@ -41,6 +41,14 @@ impl<T> DagComponent for Signed<T> where T: DagComponent {
             Err(_) => Err(DecodeError)
         }
 
+        match sig::Signature::from_blob(data) {
+            Some((sig, len)) => match T::from_blob(&data[len..]) {
+                Ok((b, _)) => Ok(Signed { signature: sig, body: b }),
+                _ => Err(DecodeError)
+            },
+            _ => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
@@ -64,7 +72,7 @@ pub struct Block {
 
 impl DagComponent for Block {
 
-    fn from_blob(_: &[u8]) -> Result<Self, DecodeError> {
+    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
         unimplemented!();
     }
 
@@ -101,7 +109,7 @@ pub struct Segment {
 
 impl DagComponent for Segment {
 
-    fn from_blob(_: &[u8]) -> Result<Self, DecodeError> {
+    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
         unimplemented!();
     }
 
@@ -119,7 +127,7 @@ pub struct ArtifactData {
 
 impl DagComponent for ArtifactData {
 
-    fn from_blob(_: &[u8]) -> Result<Self, DecodeError> {
+    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
         unimplemented!();
     }
 
@@ -138,7 +146,7 @@ pub struct ArtifactContainer {
 
 impl DagComponent for ArtifactContainer {
 
-    fn from_blob(_: &[u8]) -> Result<Self, DecodeError> {
+    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
         unimplemented!();
     }
 

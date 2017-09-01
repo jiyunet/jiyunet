@@ -161,7 +161,7 @@ impl Signature {
 
 impl DagComponent for Signature {
 
-    fn from_blob(data: &[u8]) -> Result<Self, DecodeError> {
+    fn from_blob(data: &[u8]) -> Result<(Self, usize), DecodeError> {
         use self::Signature::*;
         let sig_data = &data[1..];
         match Scheme::from_specifier(data[0]) {
@@ -181,7 +181,7 @@ impl DagComponent for Signature {
                             fp[i] = sig_data[i + 64];
                         }
 
-                        Ok(Ed25519(hex, Fingerprint::new(fp)))
+                        Ok((Ed25519(hex, Fingerprint::new(fp)), 64 + 32 + 1))
 
                     } else {
                         Err(DecodeError)

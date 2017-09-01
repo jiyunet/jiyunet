@@ -10,7 +10,8 @@ pub struct DecodeError;
 
 pub trait DagComponent where Self: Clone {
 
-    fn from_blob(data: &[u8]) -> Result<Self, DecodeError>;
+    // <(the object, bytes consumed), error info>
+    fn from_blob(data: &[u8]) -> Result<(Self, usize), DecodeError>;
     fn to_blob(&self) -> Vec<u8>;
 
     fn get_hash(&self) -> sig::Hash {
