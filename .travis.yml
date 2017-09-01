@@ -1,0 +1,26 @@
+dist: trusty
+language: rust
+
+env:
+  global:
+    - CRATE_NAME=jiyunet
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  include:
+    - env: TARGET=x86_64-unknown-linux-gnu
+    - env: TARGET=x86_64-unknown-linux-musl
+    - env: TARGET=i686-apple-darwin
+      os: osx
+    - env: TARGET=x86_64-apple-darwin
+      os: osx
+
+script:
+  - cargo build --verbose --all
+
