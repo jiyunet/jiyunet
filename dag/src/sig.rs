@@ -3,7 +3,6 @@ use crypto::{sha2, ed25519};
 use crypto::digest::Digest;
 
 use DagComponent;
-use DagNode;
 use DecodeError;
 
 pub const SHA256_WIDTH: usize = 32;
@@ -42,7 +41,7 @@ impl Hash {
         Fingerprint(self)
     }
 
-    pub fn info_array(self) -> [u8; SHA256_WIDTH] {
+    pub fn into_array(self) -> [u8; SHA256_WIDTH] {
         let Hash(h) = self;
         h
     }
@@ -123,7 +122,7 @@ impl Keypair {
     pub fn sign(&self, hash: Hash) -> Signature {
         match self {
             &Keypair::Ed25519(kpriv, kpub) => {
-                let q = ed25519::signature(&hash.info_array(), &kpriv);
+                let q = ed25519::signature(&hash.into_array(), &kpriv);
                 Signature::Ed25519(q, Fingerprint::new(kpub))
             }
         }
@@ -161,10 +160,10 @@ impl Signature {
 
 impl DagComponent for Signature {
 
-    fn from_blob(data: &[u8]) -> Result<(Self, usize), DecodeError> {
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
         use self::Signature::*;
-        let sig_data = &data[1..];
-        match Scheme::from_specifier(data[0]) {
+        let sig_data = &blob[1..];
+        match Scheme::from_specifier(blob[0]) {
             Some(s) => match s {
                 Scheme::Ed25519 => {
 

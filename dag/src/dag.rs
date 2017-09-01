@@ -1,3 +1,7 @@
+use std::io::Cursor;
+
+use byteorder::*; // FIXME
+
 use sig;
 
 use Address;
@@ -28,27 +32,14 @@ impl<T> Signed<T> where T: DagComponent {
 
 impl<T> DagComponent for Signed<T> where T: DagComponent {
 
-    fn from_blob(data: &[u8]) -> Result<Self, DecodeError> {
-
-        let sr = sig::Signature::from_blob(data);
-        if sr.is_err() {
-            return Err(DecodeError); // Error out immediately.
-        }
-
-        let sig = sr.ok().unwrap();
-        match T::from_blob(&data[sig.to_blob().len()..]) { // FIXME Not the best way to do this.
-            Ok(b) => Ok(Signed { signature: sig, body: b }),
-            Err(_) => Err(DecodeError)
-        }
-
-        match sig::Signature::from_blob(data) {
-            Some((sig, len)) => match T::from_blob(&data[len..]) {
-                Ok((b, _)) => Ok(Signed { signature: sig, body: b }),
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+        match sig::Signature::from_blob(blob) {
+            Ok((sig, len)) => match T::from_blob(&blob[len..]) {
+                Ok((b, bl)) => Ok((Signed { signature: sig, body: b }, len + bl)),
                 _ => Err(DecodeError)
             },
             _ => Err(DecodeError)
         }
-
     }
 
     fn to_blob(&self) -> Vec<u8> {
@@ -72,12 +63,78 @@ pub struct Block {
 
 impl DagComponent for Block {
 
-    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
-        unimplemented!();
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+
+        let mut c = Cursor::new(blob);
+
+        let vr = c.read_u32::<BigEndian>();
+        let tsr = c.read_i64::<BigEndian>();
+        let pcr = c.read_u8();
+        let scr = c.read_u16::<BigEndian>();
+
+        match (vr, tsr, pcr, scr) {
+            (Ok(ver), Ok(ts), Ok(parent_cnt), Ok(seg_cnt)) => {
+
+                let mut parents = Vec::new();
+                let mut segments = Vec::new();
+                let cpos = c.position() as usize;
+                let mut inner = &c.into_inner()[cpos..];
+
+                let mut consumed = 0;
+
+                for _ in 0..parent_cnt {
+                    match Address::from_blob(inner) {
+                        Ok((addr, len)) => {
+                            parents.push(addr);
+                            inner = &inner[len..];
+                            consumed += len;
+                        },
+                        _ => return Err(DecodeError)
+                    }
+                }
+
+                for _ in 0..seg_cnt {
+                    match Signed::from_blob(inner) {
+                        Ok((seg, len)) => {
+                            segments.push(seg);
+                            inner = &inner[len..];
+                            consumed += len;
+                        },
+                        _ => return Err(DecodeError)
+                    }
+                }
+
+                Ok((Block {
+                    version: ver,
+                    timestamp: ts,
+                    parents: parents,
+                    segments: segments
+                }, consumed + cpos))
+
+            },
+            (_, _, _, _) => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
-        unimplemented!();
+
+        let mut v = Vec::new();
+        v.write_u32::<BigEndian>(self.version).unwrap();
+        v.write_i64::<BigEndian>(self.timestamp).unwrap();
+        v.write_u8(self.parents.len() as u8).unwrap();
+        v.write_u16::<BigEndian>(self.segments.len() as u16).unwrap();
+
+        for p in &self.parents {
+            v.append(&mut p.to_blob());
+        }
+
+        for seg in &self.segments {
+            v.append(&mut seg.to_blob());
+        }
+
+        v
+
     }
 
 }
@@ -101,6 +158,18 @@ pub enum SegmentContent {
     ArtifactPointer(Address)
 }
 
+impl DagComponent for SegmentContent {
+
+    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
+        unimplemented!();
+    }
+
+    fn to_blob(&self) -> Vec<u8> {
+        unimplemented!();
+    }
+
+}
+
 #[derive(Clone)]
 pub struct Segment {
     timestamp: i64,
@@ -109,12 +178,35 @@ pub struct Segment {
 
 impl DagComponent for Segment {
 
-    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
-        unimplemented!();
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+
+        let mut c = Cursor::new(blob);
+        let tsr = c.read_i64::<BigEndian>();
+        match tsr {
+            Ok(ts) => {
+
+                let read = c.position() as usize;
+                match SegmentContent::from_blob(&c.into_inner()[read..]) {
+                    Ok((d, sclen)) => Ok((Segment {
+                        timestamp: ts,
+                        content: d
+                    }, read + sclen)),
+                    _ => Err(DecodeError)
+                }
+
+            },
+            _ => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
-        unimplemented!();
+
+        let mut v = Vec::new();
+        v.write_i64::<BigEndian>(self.timestamp).unwrap();
+        v.append(&mut self.content.to_blob());
+        v
+
     }
 
 }
@@ -127,12 +219,34 @@ pub struct ArtifactData {
 
 impl DagComponent for ArtifactData {
 
-    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
-        unimplemented!();
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+
+        let mut c = Cursor::new(blob);
+        let sr = c.read_u16::<BigEndian>();
+        let lr = c.read_u32::<BigEndian>();
+        match (sr, lr) {
+            (Ok(spec), Ok(len)) => {
+
+                let read = c.position() as usize;
+                let buf = &c.into_inner()[read .. read + len as usize];
+                let mut v = Vec::new();
+                v.extend_from_slice(buf);
+                Ok((ArtifactData { spec: spec, body: v }, read + len as usize))
+
+            },
+            _ => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
-        unimplemented!();
+
+        let mut v = Vec::new();
+        v.write_u16::<BigEndian>(self.spec).unwrap();
+        v.write_u32::<BigEndian>(self.body.len() as u32).unwrap();
+        v.extend_from_slice(self.body.as_slice());
+        v
+
     }
 
 }
@@ -146,12 +260,38 @@ pub struct ArtifactContainer {
 
 impl DagComponent for ArtifactContainer {
 
-    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
-        unimplemented!();
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+
+        let mut c = Cursor::new(blob);
+        let vr = c.read_u32::<BigEndian>();
+        let tsr = c.read_i64::<BigEndian>();
+        match (vr, tsr) {
+            (Ok(ver), Ok(ts)) => {
+
+                let read = c.position() as usize;
+                match SegmentContent::from_blob(&c.into_inner()[read..]) {
+                    Ok((sc, slen)) => Ok((ArtifactContainer {
+                        version: ver,
+                        timestamp: ts,
+                        content: sc
+                    }, read + slen)),
+                    _ => Err(DecodeError)
+                }
+
+            },
+            _ => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
-        unimplemented!();
+
+        let mut v = Vec::new();
+        v.write_u32::<BigEndian>(self.version).unwrap();
+        v.write_i64::<BigEndian>(self.timestamp).unwrap();
+        v.append(&mut self.content.to_blob());
+        v
+
     }
 
 }

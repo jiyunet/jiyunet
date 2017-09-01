@@ -5,3 +5,4 @@ authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
 rust-crypto = "^0.2"
+byteorder = "1"
