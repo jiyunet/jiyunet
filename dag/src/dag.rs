@@ -158,14 +158,68 @@ pub enum SegmentContent {
     ArtifactPointer(Address)
 }
 
+impl SegmentContent {
+    fn specifier(&self) -> u8 {
+        use self::SegmentContent::*;
+        match self {
+            &IdentDecl(_) => 0,
+            &Artifact(_) => 1,
+            &ArtifactPointer(_) => 2
+        }
+    }
+}
+
 impl DagComponent for SegmentContent {
 
-    fn from_blob(_: &[u8]) -> Result<(Self, usize), DecodeError> {
-        unimplemented!();
+    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
+
+        use self::SegmentContent::*;
+
+        let mut c = Cursor::new(blob);
+        let read = c.position() as usize;
+        let tr = c.read_u8();
+        let dblob = &c.into_inner()[read..];
+
+        match tr {
+            Ok(t) => match t {
+                0 => if dblob.len() >= sig::SHA256_WIDTH {
+                    let mut hd = [0; sig::SHA256_WIDTH];
+                    for i in 0..sig::SHA256_WIDTH {
+                        hd[i] = dblob[i];
+                    }
+                    Ok((IdentDecl(sig::Hash::new(hd)), read + sig::SHA256_WIDTH))
+                } else {
+                    Err(DecodeError)
+                },
+                1 => match ArtifactData::from_blob(dblob) {
+                    Ok((ad, len)) => Ok((Artifact(ad), read + len)),
+                    _ => Err(DecodeError)
+                },
+                2 => match Address::from_blob(dblob) {
+                    Ok((addr, len)) => Ok((ArtifactPointer(addr), read + len)),
+                    _ => Err(DecodeError)
+                },
+                _ => Err(DecodeError)
+            },
+            _ => Err(DecodeError)
+        }
+
     }
 
     fn to_blob(&self) -> Vec<u8> {
-        unimplemented!();
+
+        use self::SegmentContent::*;
+
+        let mut v = Vec::new();
+        v.push(self.specifier());
+        match self {
+            &IdentDecl(hash) => v.extend_from_slice(&hash.into_array()),
+            &Artifact(ref a) => v.append(&mut a.to_blob()),
+            &ArtifactPointer(p) => v.append(&mut p.to_blob())
+        }
+
+        v
+
     }
 
 }
