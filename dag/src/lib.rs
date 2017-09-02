@@ -1,7 +1,7 @@
 extern crate byteorder;
 extern crate crypto;
 
-pub mod dag;
+pub mod comp;
 pub mod sig;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -19,8 +19,8 @@ pub trait DagComponent where Self: Clone {
         sig::Hash::from_blob(self.to_blob().as_slice())
     }
 
-    fn into_signed(self, kp: sig::Keypair) -> dag::Signed<Self> {
-        dag::Signed::new(kp, self)
+    fn into_signed(self, kp: sig::Keypair) -> comp::Signed<Self> {
+        comp::Signed::new(kp, self)
     }
 
 }
