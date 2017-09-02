@@ -177,33 +177,34 @@ impl DagComponent for SegmentContent {
 
         let mut c = Cursor::new(blob);
         let read = c.position() as usize;
-        let tr = c.read_u8();
+        let tag = c.read_u8().map_err(|_| DecodeError)?;
         let dblob = &c.into_inner()[read..];
 
-        match tr {
-            Ok(t) => match t {
-                0 => if dblob.len() >= sig::SHA256_WIDTH {
-                    let mut hd = [0; sig::SHA256_WIDTH];
-                    for i in 0..sig::SHA256_WIDTH {
-                        hd[i] = dblob[i];
-                    }
-                    Ok((IdentDecl(sig::Hash::new(hd)), read + sig::SHA256_WIDTH))
-                } else {
-                    Err(DecodeError)
-                },
-                1 => match ArtifactData::from_blob(dblob) {
-                    Ok((ad, len)) => Ok((Artifact(ad), read + len)),
-                    _ => Err(DecodeError)
-                },
-                2 => match Address::from_blob(dblob) {
-                    Ok((addr, len)) => Ok((ArtifactPointer(addr), read + len)),
-                    _ => Err(DecodeError)
-                },
-                _ => Err(DecodeError)
-            },
-            _ => Err(DecodeError)
-        }
+        match tag {
+            0 => {
+                if dblob.len() < sig::SHA256_WIDTH {
+                    return Err(DecodeError);
+                }
 
+                let mut hd = [0; sig::SHA256_WIDTH];
+                for i in 0..sig::SHA256_WIDTH {
+                    hd[i] = dblob[i];
+                }
+                Ok((IdentDecl(sig::Hash::new(hd)), read + sig::SHA256_WIDTH))
+            }
+
+            1 => {
+                let (ad,len) = ArtifactData::from_blob(dblob)?;
+                Ok((Artifact(ad), read + len))
+            }
+
+            2 => {
+                let (addr,len) = Address::from_blob(dblob)?;
+                Ok((ArtifactPointer(addr), read + len))
+            }
+
+            _ => Err(DecodeError),
+        }
     }
 
     fn to_blob(&self) -> Vec<u8> {
