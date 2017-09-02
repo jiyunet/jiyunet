@@ -67,3 +67,13 @@ impl From<std::io::Error> for DecodeError {
         DecodeError
     }
 }
+
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "error while reading DAG")
+    }
+}
+
+impl std::error::Error for DecodeError {
+    fn description(&self) -> &str { "a decoding error" }
+}
