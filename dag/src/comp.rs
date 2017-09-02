@@ -67,10 +67,10 @@ impl DagComponent for Block {
 
         let mut c = Cursor::new(blob);
 
-        let ver = c.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
-        let ts = c.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
-        let parent_cnt = c.read_u8().map_err(|_| DecodeError)?;
-        let seg_cnt = c.read_u16::<BigEndian>().map_err(|_| DecodeError)?;
+        let ver = c.read_u32::<BigEndian>()?;
+        let ts = c.read_i64::<BigEndian>()?;
+        let parent_cnt = c.read_u8()?;
+        let seg_cnt = c.read_u16::<BigEndian>()?;
 
         let mut parents = Vec::new();
         let mut segments = Vec::new();
@@ -161,7 +161,7 @@ impl DagComponent for SegmentContent {
 
         let mut c = Cursor::new(blob);
         let read = c.position() as usize;
-        let tag = c.read_u8().map_err(|_| DecodeError)?;
+        let tag = c.read_u8()?;
         let dblob = &c.into_inner()[read..];
 
         match tag {
@@ -220,7 +220,7 @@ impl DagComponent for Segment {
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
 
         let mut c = Cursor::new(blob);
-        let ts = c.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let ts = c.read_i64::<BigEndian>()?;
 
         let read = c.position() as usize;
         let (d, sclen) = SegmentContent::from_blob(&c.into_inner()[read..])?;
@@ -252,8 +252,8 @@ impl DagComponent for ArtifactData {
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
 
         let mut c = Cursor::new(blob);
-        let spec = c.read_u16::<BigEndian>().map_err(|_| DecodeError)?;
-        let len = c.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
+        let spec = c.read_u16::<BigEndian>()?;
+        let len = c.read_u32::<BigEndian>()?;
 
         let read = c.position() as usize;
         let buf = &c.into_inner()[read .. read + len as usize];
@@ -286,8 +286,8 @@ impl DagComponent for ArtifactContainer {
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
 
         let mut c = Cursor::new(blob);
-        let ver = c.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
-        let ts = c.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let ver = c.read_u32::<BigEndian>()?;
+        let ts = c.read_i64::<BigEndian>()?;
 
         let read = c.position() as usize;
         let (sc, slen) = SegmentContent::from_blob(&c.into_inner()[read..])?;
