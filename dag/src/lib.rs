@@ -7,8 +7,6 @@ pub mod sig;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Address(sig::Hash);
 
-pub struct DecodeError;
-
 pub trait DagComponent where Self: Clone {
 
     // <(the object, bytes consumed), error info>
@@ -69,4 +67,24 @@ impl DagComponent for Address {
 
     }
 
+}
+
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub struct DecodeError;
+
+impl From<std::io::Error> for DecodeError {
+    fn from(_: std::io::Error) -> Self {
+        DecodeError
+    }
+}
+
+impl std::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "error while reading DAG")
+    }
+}
+
+impl std::error::Error for DecodeError {
+    fn description(&self) -> &str { "a decoding error" }
 }
