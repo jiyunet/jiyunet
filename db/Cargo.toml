@@ -5,4 +5,3 @@ authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
 libjiyunet-dag = { path = "../dag" }
-

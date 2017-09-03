@@ -32,6 +32,17 @@ pub trait DagNode where Self: DagComponent {
 
 }
 
+impl Address {
+
+    pub fn new(hex: [u8; sig::SHA256_WIDTH]) -> Address {
+        Address(sig::Hash::new(hex))
+    }
+
+    pub fn of(blob: &[u8]) -> Address {
+        Address(sig::Hash::from_blob(blob))
+    }
+}
+
 impl DagComponent for Address {
 
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
