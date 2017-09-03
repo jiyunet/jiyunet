@@ -65,7 +65,7 @@ fn slice_to_hexadecimal(slice: &[u8]) -> String {
 
     let mut out = String::with_capacity(slice.len() * 2);
     for b in slice {
-        for n in vec![b & 0xf0, b & 0x0f] {
+        for n in vec![(b & 0xf0) >> 4, b & 0x0f] {
             out.push_str(match n {
                 0 => "0",
                 1 => "1",
@@ -89,5 +89,27 @@ fn slice_to_hexadecimal(slice: &[u8]) -> String {
     }
 
     out
+
+}
+
+#[cfg(test)]
+mod test {
+
+    use fs;
+
+    #[test]
+    fn test_slice_to_hexadecimal_1() {
+        assert_eq!(fs::slice_to_hexadecimal(&[0xca, 0xfe, 0xba, 0xbe]), "cafebabe");
+    }
+
+    #[test]
+    fn test_slice_to_hexadecimal_2() {
+        assert_eq!(fs::slice_to_hexadecimal(&[0xde, 0xad, 0xbe, 0xef]), "deadbeef");
+    }
+
+    #[test]
+    fn test_slice_to_hexadecimal_3() {
+        assert_eq!(fs::slice_to_hexadecimal(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]), "0123456789abcdef");
+    }
 
 }
