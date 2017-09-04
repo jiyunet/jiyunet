@@ -7,6 +7,9 @@ pub mod sig;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Address(sig::Hash);
 
+pub type SignedBlock = comp::Signed<comp::Block>;
+pub type SignedArtifactContainer = comp::Signed<comp::ArtifactContainer>;
+
 pub trait DagComponent where Self: Clone {
 
     // <(the object, bytes consumed), error info>
@@ -39,6 +42,7 @@ impl Address {
     pub fn of(blob: &[u8]) -> Address {
         Address(sig::Hash::from_blob(blob))
     }
+
 }
 
 impl DagComponent for Address {

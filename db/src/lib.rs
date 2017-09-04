@@ -5,9 +5,6 @@ pub mod fs;
 use dag::Address;
 use dag::DagNode;
 
-pub type StoredBlock = dag::comp::Signed<dag::comp::Block>;
-pub type StoredArtifact = dag::comp::Signed<dag::comp::ArtifactContainer>;
-
 pub trait BlobSource {
     fn get(&self, addr: Address) -> Option<Vec<u8>>;
     fn put(&self, addr: Address, blob: Vec<u8>) -> Result<(), ()>; // TODO Make something out of this.
