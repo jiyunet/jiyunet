@@ -1,5 +1,6 @@
 [workspace]
 members = [
 	"dag",
-	"db"
+	"db",
+	"verification"
 ]
