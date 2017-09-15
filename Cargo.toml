@@ -2,5 +2,5 @@
 members = [
 	"dag",
 	"db",
-	"verification"
+	"validation"
 ]
