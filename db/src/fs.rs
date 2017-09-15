@@ -6,8 +6,18 @@ use dag::Address;
 use dag::DagComponent;
 use BlobSource;
 
+/// Stores blobs using some directory, with a root specified.
 pub struct FsBlobSource {
     root: PathBuf
+}
+
+impl FsBlobSource {
+
+    /// Creates a new `FsBlobSource` using the specified datastore root.
+    pub fn new(root: PathBuf) -> FsBlobSource {
+        FsBlobSource { root: root }
+    }
+
 }
 
 impl BlobSource for FsBlobSource {
