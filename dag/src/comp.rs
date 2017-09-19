@@ -244,6 +244,15 @@ pub struct Segment {
     content: SegmentContent
 }
 
+impl Segment {
+
+    /// Returns the actual segment content.
+    pub fn content(&self) -> SegmentContent {
+        self.content.clone()
+    }
+
+}
+
 impl DagComponent for Segment {
 
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {

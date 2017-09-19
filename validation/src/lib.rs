@@ -1,6 +1,8 @@
 extern crate libjiyunet_dag as dag;
 extern crate libjiyunet_db as db;
 
+use dag::DagComponent;
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ValidationError {
     DecodeError(dag::Address), // Problem decoding data.
@@ -22,4 +24,18 @@ trait Validate {
     fn new(genesis: dag::comp::Signed<dag::comp::Block>) -> Result<Box<Self>, ValidationError>;
     fn include(self, added: Addable) -> Result<Box<Self>, (Box<Self>, ValidationError)>;
 
+}
+
+type SegmentCost = u64;
+
+const IDENT_COST: SegmentCost = 1000;
+const APTR_COST: SegmentCost = 50;
+
+fn calc_segment_cost(seg: dag::comp::Segment) -> SegmentCost {
+    use dag::comp::SegmentContent::*;
+    match seg.content() {
+        IdentDecl(_) => IDENT_COST,
+        Artifact(ad) => ad.to_blob().len() as SegmentCost, // TODO Make this more mathy.
+        ArtifactPointer(_) => APTR_COST
+    }
 }
