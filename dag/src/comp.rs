@@ -9,6 +9,7 @@ use DagComponent;
 use DagNode;
 use DecodeError;
 
+/// Generic type for a "signed" version of `T`.
 #[derive(Clone)]
 pub struct Signed<T> where T: DagComponent {
     signature: sig::Signature,
@@ -17,6 +18,7 @@ pub struct Signed<T> where T: DagComponent {
 
 impl<T> Signed<T> where T: DagComponent {
 
+    /// Creates a new signed verison of the given `T`, signed with the specified keypair.
     pub fn new(kp: sig::Keypair, body: T) -> Signed<T> {
         Signed {
             signature: kp.sign(body.get_hash()),
@@ -24,6 +26,7 @@ impl<T> Signed<T> where T: DagComponent {
         }
     }
 
+    /// Unwraps the contained type into its unsigned form.
     pub fn extract(self) -> T {
         self.body
     }
@@ -53,12 +56,27 @@ impl<T> DagComponent for Signed<T> where T: DagComponent {
 
 }
 
+/// Main type of node on the dag.  Primary unit of time and validation.
+///
+/// Blocks have a header including their parent information.  They also contain a set of segments
+/// that represent the data actually stored in the blocks.  Segments are for the actual mid-layer
+/// validation logic.  One type of segments are artifact segments, which carry actual payload data
+/// in the content layer.  Artifact contents have no bearing on validation, only total size.
 #[derive(Clone)]
 pub struct Block {
+
+    /// Version identifier.  TODO Formalize this.
     version: u32,
+
+    /// Millisecond UNIX time
     timestamp: i64,
+
+    /// The addresses of the immediate parent blocks (`Signed<Block>`) to this block.
     parents: Vec<Address>,
+
+    /// The segments contained within this block.
     segments: Vec<Signed<Segment>>
+
 }
 
 impl DagComponent for Block {
@@ -135,6 +153,11 @@ impl DagNode for Signed<Block> {
 
 }
 
+/// Any kind of data that can be stored in a segment.
+///
+/// * IdentDecl - Used to declare identities on the network.
+/// * Artifact - Actual on-chain artifact.
+/// * ArtifactPointer - Pointer to an artifact container, off-chain.
 #[derive(Clone)]
 pub enum SegmentContent {
     IdentDecl(sig::Hash),
@@ -143,6 +166,10 @@ pub enum SegmentContent {
 }
 
 impl SegmentContent {
+
+    /// Returns the speciier for the SegmentContent used for serialization.
+    ///
+    /// TODO Make this make more sense.
     fn specifier(&self) -> u8 {
         use self::SegmentContent::*;
         match self {
@@ -209,6 +236,8 @@ impl DagComponent for SegmentContent {
 
 }
 
+/// A segment itself, with a timestamp.  See the documentation for Block for more information.  You
+/// probably want to use a `Signed<Segment>` if you're just working with them.
 #[derive(Clone)]
 pub struct Segment {
     timestamp: i64,
@@ -274,6 +303,9 @@ impl DagComponent for ArtifactData {
 
 }
 
+/// The off-chain container.  Usually you would want to use it as a `Signed<ArtifactContainer>`.
+/// You can technically chain these infinitely as it's actually a segment container, so you could
+/// just chain `ArtifactPointer`s indefinitely.
 #[derive(Clone)]
 pub struct ArtifactContainer {
     version: u32,

@@ -7,6 +7,7 @@ use DecodeError;
 
 pub const SHA256_WIDTH: usize = 32;
 
+/// A SHA-256 hash.
 #[derive(Copy, Eq, Ord, PartialOrd, Hash)]
 pub struct Hash([u8; SHA256_WIDTH]);
 
@@ -22,10 +23,12 @@ impl PartialEq for Hash {
 
 impl Hash {
 
+    /// Creates a new hash with the given contents.
     pub fn new(hex: [u8; SHA256_WIDTH]) -> Hash {
         Hash(hex)
     }
 
+    /// Computes the SHA-256 hash of the given blob.
     pub fn from_blob(blob: &[u8]) -> Hash {
 
         let mut hasher = sha2::Sha256::new();
@@ -37,10 +40,12 @@ impl Hash {
 
     }
 
+    /// Converts this hash into a `Fingerprint`, presumably used for creating a `Signature`.
     pub fn into_fingerprint(self) -> Fingerprint {
         Fingerprint(self)
     }
 
+    /// (does what it says on the tin)
     pub fn into_array(self) -> [u8; SHA256_WIDTH] {
         let Hash(h) = self;
         h
@@ -54,6 +59,7 @@ impl Clone for Hash {
     }
 }
 
+/// The SHA-256 hash of an identity declaration artifact.
 #[derive(Copy, Clone)]
 pub struct Fingerprint(Hash);
 
@@ -73,6 +79,8 @@ impl Fingerprint {
     }
 }
 
+/// A signature algorithm scheme.  Only supports Ed25519 for now.
+/// FIXME There is a better way to keep track of these in a modular manner.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Scheme {
     Ed25519
@@ -80,6 +88,7 @@ pub enum Scheme {
 
 impl Scheme {
 
+    /// Generates a new keypair using the scheme (ourselves) and the given seed,
     pub fn generate(self, seed: &[u8]) -> Keypair {
         match self {
             Scheme::Ed25519 => {
@@ -89,6 +98,7 @@ impl Scheme {
         }
     }
 
+    /// Returns the specifier byte for this signature scheme.
     fn to_specifier(&self) -> u8 {
         use self::Scheme::*;
         match self {
@@ -96,6 +106,7 @@ impl Scheme {
         }
     }
 
+    /// Returns the signature scheme from the given specifier byte.
     fn from_specifier(s: u8) -> Option<Scheme> {
         use self::Scheme::*;
         match s {
@@ -106,6 +117,7 @@ impl Scheme {
 
 }
 
+/// A keypair using some signature algorithm.  Only support Ed25519 for now.
 #[derive(Copy)]
 pub enum Keypair {
     Ed25519([u8; 64], [u8; 32])
@@ -119,6 +131,7 @@ impl Clone for Keypair {
 
 impl Keypair {
 
+    /// Generates a signature for the given hash using this keypair.
     pub fn sign(&self, hash: Hash) -> Signature {
         match self {
             &Keypair::Ed25519(kpriv, kpub) => {
@@ -130,6 +143,7 @@ impl Keypair {
 
 }
 
+/// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
 #[derive(Copy)]
 pub enum Signature {
     Ed25519([u8; 64], Fingerprint)
@@ -143,6 +157,7 @@ impl Clone for Signature {
 
 impl Signature {
 
+    /// Returns the signature scheme used for this signature.
     fn scheme(&self) -> Scheme {
         use self::Signature::*;
         match self {
@@ -150,6 +165,7 @@ impl Signature {
         }
     }
 
+    /// Extracts the fingerprint of the public key of the signature.
     pub fn into_fingerprint(self) -> Fingerprint {
         match self {
             Signature::Ed25519(_, f) => f,
