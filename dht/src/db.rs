@@ -5,7 +5,8 @@ use PeerRecord;
 use Ping;
 
 /// In-memory storage of the peers on the network.
-struct PeerDatabase {
+#[derive(Clone)]
+pub struct PeerDatabase {
     peers: HashMap<PeerRecord, Ping>
 }
 
@@ -16,12 +17,18 @@ pub struct PeerDatabaseHandle(Arc<RwLock<PeerDatabase>>);
 #[allow(dead_code)]
 impl PeerDatabase {
 
+    /// Returns a handle to a new, empty database.
     pub fn new() -> PeerDatabaseHandle {
         PeerDatabaseHandle(Arc::new(RwLock::new(
             PeerDatabase {
                 peers: HashMap::new()
             }
         )))
+    }
+
+    /// Wraps the given peer database and contains it.  For IO purposes.
+    pub fn from_owned(db: PeerDatabase) -> PeerDatabaseHandle {
+        PeerDatabaseHandle(Arc::new(RwLock::new(db)))
     }
 
     fn add_peer(&mut self, peer: PeerRecord) -> Result<(), ()> {
@@ -75,6 +82,11 @@ impl PeerDatabaseHandle {
     /// Updates the ping for an already-known peer.  Can be changed to "unset".
     pub fn update_ping(&mut self, peer: PeerRecord, ping: Ping) -> Result<(), ()> {
         self.0.write().unwrap().update_peer_ping(peer, ping)
+    }
+
+    /// Returns a new, owned clone of the peer database.  For IO purposes.
+    pub fn into_owned_clone(self) -> PeerDatabase {
+        self.0.read().unwrap().clone()
     }
 
 }
