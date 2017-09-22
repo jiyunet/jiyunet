@@ -129,6 +129,18 @@ impl Clone for Keypair {
     }
 }
 
+/// A public key used to validate `Signed<T>` structures.
+#[derive(Copy)]
+pub enum ValidationKey {
+    Ed25519([u8; 64])
+}
+
+impl Clone for ValidationKey {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
 impl Keypair {
 
     /// Generates a signature for the given hash using this keypair.
@@ -138,6 +150,13 @@ impl Keypair {
                 let q = ed25519::signature(&hash.into_array(), &kpriv);
                 Signature::Ed25519(q, Fingerprint::new(kpub))
             }
+        }
+    }
+
+    /// Converts this keypair into *just* the validation (public) key.
+    pub fn into_pubkey(self) -> ValidationKey {
+        match self {
+            Keypair::Ed25519(k, _) => ValidationKey::Ed25519(k)
         }
     }
 
@@ -226,4 +245,17 @@ impl DagComponent for Signature {
 
     }
 
+}
+
+pub enum SigVerificationError {
+    IncompatibleSignatureSchemes,
+    MismatchedKey
+}
+
+pub fn verify(sig: Signature, vk: ValidationKey, data: &[u8]) -> Result<(), SigVerificationError> {
+    use self::SigVerificationError::*;
+    match (sig, vk) {
+        (Signature::Ed25519(sd, _), ValidationKey::Ed25519(kd)) => if ed25519::verify(data, &kd, &sd) { Ok(()) } else { Err(MismatchedKey) },
+        _ => Err(IncompatibleSignatureSchemes)
+    }
 }
