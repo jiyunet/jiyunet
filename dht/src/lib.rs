@@ -16,13 +16,13 @@ pub enum ConnectionScheme {
 pub struct PeerRecord {
 
     /// The self-identified name of this peer.
-    name: Option<String>,
+    pub name: Option<String>,
 
     /// The scheme for connecting to the peer to talk the protocol over.
-    endpoint: ConnectionScheme,
+    pub endpoint: ConnectionScheme,
 
     /// UNIX time in milliseconds when this record should expire.
-    expiration: u64
+    pub expiration: u64
 
 }
 
