@@ -62,14 +62,17 @@ impl PeerDatabase {
 
 impl PeerDatabaseHandle {
 
-    pub fn put_peer(&mut self, p: PeerRecord) -> Result<(), ()> {
+    /// Adds a new peer to the database, without a known ping set.
+    pub fn add_peer(&mut self, p: PeerRecord) -> Result<(), ()> {
         self.0.write().unwrap().add_peer(p)
     }
 
+    /// Cleans any peers that expire before the specified time.
     pub fn clean_expired(&mut self, before: u64) -> Vec<PeerRecord> {
         self.0.write().unwrap().clean_expired(before)
     }
 
+    /// Updates the ping for an already-known peer.  Can be changed to "unset".
     pub fn update_ping(&mut self, peer: PeerRecord, ping: Ping) -> Result<(), ()> {
         self.0.write().unwrap().update_peer_ping(peer, ping)
     }
