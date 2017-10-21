@@ -1,4 +1,6 @@
 
+use std::fmt::{Debug, Error, Formatter};
+
 use crypto::{sha2, ed25519};
 use crypto::digest::Digest;
 
@@ -8,9 +10,10 @@ use DecodeError;
 pub const SHA256_WIDTH: usize = 32;
 
 /// A SHA-256 hash.
-#[derive(Copy, Eq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Ord, PartialOrd, Hash, Debug)]
 pub struct Hash([u8; SHA256_WIDTH]);
 
+impl Eq for Hash {}
 impl PartialEq for Hash {
     fn eq(&self, other: &Self) -> bool {
 
@@ -22,7 +25,6 @@ impl PartialEq for Hash {
 }
 
 impl Hash {
-
     /// Creates a new hash with the given contents.
     pub fn new(hex: [u8; SHA256_WIDTH]) -> Hash {
         Hash(hex)
@@ -50,7 +52,6 @@ impl Hash {
         let Hash(h) = self;
         h
     }
-
 }
 
 impl Clone for Hash {
@@ -60,7 +61,7 @@ impl Clone for Hash {
 }
 
 /// The SHA-256 hash of an identity declaration artifact.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Fingerprint(Hash);
 
 impl Fingerprint {
@@ -68,7 +69,8 @@ impl Fingerprint {
         Fingerprint(Hash::new(hex))
     }
 
-    pub fn into_hash(self) -> Hash { // TODO Make this all From<T> or whatever.
+    pub fn into_hash(self) -> Hash {
+        // TODO Make this all From<T> or whatever.
         let Fingerprint(hash) = self; // Pattern matching! ^_^
         hash
     }
@@ -81,13 +83,12 @@ impl Fingerprint {
 
 /// A signature algorithm scheme.  Only supports Ed25519 for now.
 /// FIXME There is a better way to keep track of these in a modular manner.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Scheme {
-    Ed25519
+    Ed25519,
 }
 
 impl Scheme {
-
     /// Generates a new keypair using the scheme (ourselves) and the given seed,
     pub fn generate(self, seed: &[u8]) -> Keypair {
         match self {
@@ -102,7 +103,7 @@ impl Scheme {
     fn to_specifier(&self) -> u8 {
         use self::Scheme::*;
         match self {
-            &Ed25519 => 0x00
+            &Ed25519 => 0x00,
         }
     }
 
@@ -111,16 +112,15 @@ impl Scheme {
         use self::Scheme::*;
         match s {
             0x00 => Some(Ed25519),
-            _ => None
+            _ => None,
         }
     }
-
 }
 
 /// A keypair using some signature algorithm.  Only support Ed25519 for now.
 #[derive(Copy)]
 pub enum Keypair {
-    Ed25519([u8; 64], [u8; 32])
+    Ed25519([u8; 64], [u8; 32]),
 }
 
 impl Clone for Keypair {
@@ -129,10 +129,21 @@ impl Clone for Keypair {
     }
 }
 
+impl Eq for Keypair {}
+impl PartialEq for Keypair {
+    fn eq(&self, other: &Self) -> bool {
+        use self::Keypair::*;
+        match (*self, *other) {
+            (Ed25519(ap, ak), Ed25519(bp, bk)) => arr_eq(&ap, &bp) && arr_eq(&ak, &bk),
+            _ => false,
+        }
+    }
+}
+
 /// A public key used to validate `Signed<T>` structures.
 #[derive(Copy)]
 pub enum ValidationKey {
-    Ed25519([u8; 64])
+    Ed25519([u8; 64]),
 }
 
 impl Clone for ValidationKey {
@@ -141,8 +152,18 @@ impl Clone for ValidationKey {
     }
 }
 
-impl Keypair {
+impl Eq for ValidationKey {}
+impl PartialEq for ValidationKey {
+    fn eq(&self, other: &Self) -> bool {
+        use self::ValidationKey::*;
+        match (*self, *other) {
+            (Ed25519(a), Ed25519(b)) => arr_eq(&a, &b),
+            _ => false,
+        }
+    }
+}
 
+impl Keypair {
     /// Generates a signature for the given hash using this keypair.
     pub fn sign(&self, hash: Hash) -> Signature {
         match self {
@@ -156,16 +177,15 @@ impl Keypair {
     /// Converts this keypair into *just* the validation (public) key.
     pub fn into_pubkey(self) -> ValidationKey {
         match self {
-            Keypair::Ed25519(k, _) => ValidationKey::Ed25519(k)
+            Keypair::Ed25519(k, _) => ValidationKey::Ed25519(k),
         }
     }
-
 }
 
 /// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
 #[derive(Copy)]
 pub enum Signature {
-    Ed25519([u8; 64], Fingerprint)
+    Ed25519([u8; 64], Fingerprint),
 }
 
 impl Clone for Signature {
@@ -174,13 +194,30 @@ impl Clone for Signature {
     }
 }
 
-impl Signature {
+impl Eq for Signature {}
+impl PartialEq for Signature {
+    fn eq(&self, other: &Self) -> bool {
+        use self::Signature::*;
+        match (*self, *other) {
+            (Ed25519(a, af), Ed25519(b, bf)) => af == bf && arr_eq(&a, &b),
+            _ => false,
+        }
+    }
+}
 
+impl Debug for Signature {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        f.write_str("[sig]"); // This is okay because it's just binary data anyways.
+        Ok(())
+    }
+}
+
+impl Signature {
     /// Returns the signature scheme used for this signature.
     fn scheme(&self) -> Scheme {
         use self::Signature::*;
         match self {
-            &Ed25519(_, _) => Scheme::Ed25519
+            &Ed25519(_, _) => Scheme::Ed25519,
         }
     }
 
@@ -190,40 +227,40 @@ impl Signature {
             Signature::Ed25519(_, f) => f,
         }
     }
-
 }
 
 impl DagComponent for Signature {
-
     fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
         use self::Signature::*;
         let sig_data = &blob[1..];
         match Scheme::from_specifier(blob[0]) {
-            Some(s) => match s {
-                Scheme::Ed25519 => {
+            Some(s) => {
+                match s {
+                    Scheme::Ed25519 => {
 
-                    // FIXME Make this more functional.  It looks horrible as-is.
-                    if sig_data.len() > (64 + 32) {
+                        // FIXME Make this more functional.  It looks horrible as-is.
+                        if sig_data.len() > (64 + 32) {
 
-                        let mut hex = [0; 64];
-                        for i in 0..64 {
-                            hex[i] = sig_data[i]
+                            let mut hex = [0; 64];
+                            for i in 0..64 {
+                                hex[i] = sig_data[i]
+                            }
+
+                            let mut fp = [0; 32];
+                            for i in 0..32 {
+                                fp[i] = sig_data[i + 64];
+                            }
+
+                            Ok((Ed25519(hex, Fingerprint::new(fp)), 64 + 32 + 1))
+
+                        } else {
+                            Err(DecodeError)
                         }
 
-                        let mut fp = [0; 32];
-                        for i in 0..32 {
-                            fp[i] = sig_data[i + 64];
-                        }
-
-                        Ok((Ed25519(hex, Fingerprint::new(fp)), 64 + 32 + 1))
-
-                    } else {
-                        Err(DecodeError)
                     }
-
                 }
-            },
-            None => Err(DecodeError)
+            }
+            None => Err(DecodeError),
         }
     }
 
@@ -244,18 +281,39 @@ impl DagComponent for Signature {
         buf
 
     }
-
 }
 
 pub enum SigVerificationError {
     IncompatibleSignatureSchemes,
-    MismatchedKey
+    MismatchedKey,
 }
 
 pub fn verify(sig: Signature, vk: ValidationKey, data: &[u8]) -> Result<(), SigVerificationError> {
     use self::SigVerificationError::*;
     match (sig, vk) {
-        (Signature::Ed25519(sd, _), ValidationKey::Ed25519(kd)) => if ed25519::verify(data, &kd, &sd) { Ok(()) } else { Err(MismatchedKey) },
-        _ => Err(IncompatibleSignatureSchemes)
+        (Signature::Ed25519(sd, _), ValidationKey::Ed25519(kd)) => {
+            if ed25519::verify(data, &kd, &sd) {
+                Ok(())
+            } else {
+                Err(MismatchedKey)
+            }
+        }
+        _ => Err(IncompatibleSignatureSchemes),
     }
+}
+
+fn arr_eq<T: PartialEq>(a: &[T], b: &[T]) -> bool {
+
+    if a.len() != b.len() {
+        return false;
+    }
+
+    for i in 0..a.len() {
+        if a[i] != b[i] {
+            return false;
+        }
+    }
+
+    return true;
+
 }

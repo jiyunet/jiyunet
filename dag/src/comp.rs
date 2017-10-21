@@ -10,7 +10,7 @@ use DagNode;
 use DecodeError;
 
 /// Generic type for a "signed" version of `T`.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Signed<T> where T: DagComponent {
     signature: sig::Signature,
     body: T
@@ -62,7 +62,7 @@ impl<T> DagComponent for Signed<T> where T: DagComponent {
 /// that represent the data actually stored in the blocks.  Segments are for the actual mid-layer
 /// validation logic.  One type of segments are artifact segments, which carry actual payload data
 /// in the content layer.  Artifact contents have no bearing on validation, only total size.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Block {
 
     /// Version identifier.  TODO Formalize this.
@@ -158,7 +158,7 @@ impl DagNode for Signed<Block> {
 /// * IdentDecl - Used to declare identities on the network.
 /// * Artifact - Actual on-chain artifact.
 /// * ArtifactPointer - Pointer to an artifact container, off-chain.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub enum SegmentContent {
     IdentDecl(sig::Hash),
     Artifact(ArtifactData),
@@ -238,7 +238,7 @@ impl DagComponent for SegmentContent {
 
 /// A segment itself, with a timestamp.  See the documentation for Block for more information.  You
 /// probably want to use a `Signed<Segment>` if you're just working with them.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Segment {
     timestamp: i64,
     content: SegmentContent
@@ -279,7 +279,7 @@ impl DagComponent for Segment {
 
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ArtifactData {
     spec: u16, // Artifact code.  Big-endian 0xXXXY, where X is the namespace and Y is the subtype.
     body: Vec<u8> // Actual artifact format is specified in a higher layer.
@@ -315,7 +315,7 @@ impl DagComponent for ArtifactData {
 /// The off-chain container.  Usually you would want to use it as a `Signed<ArtifactContainer>`.
 /// You can technically chain these infinitely as it's actually a segment container, so you could
 /// just chain `ArtifactPointer`s indefinitely.
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ArtifactContainer {
     version: u32,
     timestamp: i64,
@@ -360,6 +360,67 @@ impl DagNode for Signed<ArtifactContainer> {
 
     fn timestamp(&self) -> i64 {
         self.body.timestamp
+    }
+
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use super::SegmentContent::*;
+
+    #[test]
+    fn ck_block_between_blob() {
+
+        let block = Block {
+            version: 42,
+            timestamp: 1337,
+            parents: vec![],
+            segments: vec![]
+        };
+
+        assert_eq!(block, Block::from_blob(block.to_blob().as_slice()).unwrap().0)
+
+    }
+
+    #[test]
+    fn ck_segment_between_blob_1() {
+
+        let seg = Segment {
+            timestamp: 123456789,
+            content: IdentDecl(sig::Hash::from_blob(&[0, 1, 2, 3]))
+        };
+
+        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+
+    }
+
+    #[test]
+    fn ck_segment_between_blob_2() {
+
+        let seg = Segment {
+            timestamp: 19101004,
+            content: Artifact(ArtifactData {
+                spec: 42,
+                body: vec![65, 66, 67, 68]
+            })
+        };
+
+        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+
+    }
+
+    #[test]
+    fn ck_segment_between_blob_3() {
+
+        let seg = Segment {
+            timestamp: 80,
+            content: ArtifactPointer(Address::of(&[1, 3, 3, 7]))
+        };
+
+        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+
     }
 
 }
