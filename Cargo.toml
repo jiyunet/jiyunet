@@ -3,5 +3,6 @@ members = [
 	"dag",
 	"db",
 	"dht",
+	"node",
 	"validation"
 ]
