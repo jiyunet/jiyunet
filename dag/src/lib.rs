@@ -6,7 +6,7 @@ pub mod sig;
 
 /// Used to directly address something in the DAG.  Just a SHA-256 hash of whatever it is that
 /// it's addressing.  Yay for content-addressed objects.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Address(sig::Hash);
 
 /// Simpler way to refer to the actual block on the chain, as they need to be signed.
@@ -95,7 +95,7 @@ impl DagComponent for Address {
 }
 
 /// An error in decoding a DagComponent.  Should propagate up the call stack.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct DecodeError;
 
 impl From<std::io::Error> for DecodeError {
