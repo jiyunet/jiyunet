@@ -8,6 +8,7 @@ libjiyunet-dag = { path = "../dag" }
 libjiyunet-db = { path = "../db" }
 libjiyunet-dht = { path = "../dht" }
 libjiyunet-validation = { path = "../validation" }
+clap = "2.27.1"
 
 [[bin]]
 name = "jiyud"
