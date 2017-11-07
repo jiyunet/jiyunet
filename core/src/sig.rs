@@ -1,13 +1,51 @@
 
 use std::fmt::{Debug, Error, Formatter};
 
+use byteorder::{ReadBytesExt, WriteBytesExt};
+
 use crypto::{sha2, ed25519};
 use crypto::digest::Digest;
 
-use DagComponent;
-use DecodeError;
+use io::BinaryComponent;
+use io::DecodeError;
 
 pub const SHA256_WIDTH: usize = 32;
+
+/// Generic type for a "signed" version of `T`.
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Signed<T> where T: BinaryComponent {
+    signature: Signature,
+    body: T
+}
+
+impl<T> Signed<T> where T: BinaryComponent {
+
+    /// Creates a new signed verison of the given `T`, signed with the specified keypair.
+    pub fn new(kp: Keypair, body: T) -> Signed<T> {
+        Signed {
+            signature: kp.sign(body.get_hash()),
+            body: body
+        }
+    }
+
+    /// Unwraps the contained type into its unsigned form.
+    pub fn extract(self) -> T {
+        self.body
+    }
+
+}
+
+impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
+
+    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
+        unimplemented!();
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+        unimplemented!();
+    }
+
+}
 
 /// A SHA-256 hash.
 #[derive(Copy, Ord, PartialOrd, Hash, Debug)]
@@ -25,21 +63,10 @@ impl PartialEq for Hash {
 }
 
 impl Hash {
+
     /// Creates a new hash with the given contents.
     pub fn new(hex: [u8; SHA256_WIDTH]) -> Hash {
         Hash(hex)
-    }
-
-    /// Computes the SHA-256 hash of the given blob.
-    pub fn from_blob(blob: &[u8]) -> Hash {
-
-        let mut hasher = sha2::Sha256::new();
-        hasher.input(blob);
-
-        let mut hashed = [0; SHA256_WIDTH];
-        hasher.result(&mut hashed);
-        Hash::new(hashed)
-
     }
 
     /// Converts this hash into a `Fingerprint`, presumably used for creating a `Signature`.
@@ -52,6 +79,17 @@ impl Hash {
         let Hash(h) = self;
         h
     }
+
+    pub fn of_slice(data: &[u8]) -> Hash {
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.input(data);
+        let mut out = [0u8; SHA256_WIDTH];
+        hasher.result(&mut out);
+        Hash(out)
+
+    }
+
 }
 
 impl Clone for Hash {
@@ -89,6 +127,7 @@ pub enum Scheme {
 }
 
 impl Scheme {
+
     /// Generates a new keypair using the scheme (ourselves) and the given seed,
     pub fn generate(self, seed: &[u8]) -> Keypair {
         match self {
@@ -115,6 +154,7 @@ impl Scheme {
             _ => None,
         }
     }
+
 }
 
 /// A keypair using some signature algorithm.  Only support Ed25519 for now.
@@ -164,6 +204,7 @@ impl PartialEq for ValidationKey {
 }
 
 impl Keypair {
+
     /// Generates a signature for the given hash using this keypair.
     pub fn sign(&self, hash: Hash) -> Signature {
         match self {
@@ -180,6 +221,7 @@ impl Keypair {
             Keypair::Ed25519(k, _) => ValidationKey::Ed25519(k),
         }
     }
+
 }
 
 /// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
@@ -213,6 +255,7 @@ impl Debug for Signature {
 }
 
 impl Signature {
+
     /// Returns the signature scheme used for this signature.
     fn scheme(&self) -> Scheme {
         use self::Signature::*;
@@ -227,60 +270,19 @@ impl Signature {
             Signature::Ed25519(_, f) => f,
         }
     }
+
 }
 
-impl DagComponent for Signature {
-    fn from_blob(blob: &[u8]) -> Result<(Self, usize), DecodeError> {
-        use self::Signature::*;
-        let sig_data = &blob[1..];
-        match Scheme::from_specifier(blob[0]) {
-            Some(s) => {
-                match s {
-                    Scheme::Ed25519 => {
+impl BinaryComponent for Signature {
 
-                        // FIXME Make this more functional.  It looks horrible as-is.
-                        if sig_data.len() > (64 + 32) {
-
-                            let mut hex = [0; 64];
-                            for i in 0..64 {
-                                hex[i] = sig_data[i]
-                            }
-
-                            let mut fp = [0; 32];
-                            for i in 0..32 {
-                                fp[i] = sig_data[i + 64];
-                            }
-
-                            Ok((Ed25519(hex, Fingerprint::new(fp)), 64 + 32 + 1))
-
-                        } else {
-                            Err(DecodeError)
-                        }
-
-                    }
-                }
-            }
-            None => Err(DecodeError),
-        }
+    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
+        unimplemented!();
     }
 
-    fn to_blob(&self) -> Vec<u8> {
-
-        use self::Signature::*;
-
-        let mut buf = Vec::new();
-        buf.push(self.scheme().to_specifier());
-
-        match self {
-            &Ed25519(t, f) => {
-                buf.extend_from_slice(&t);
-                buf.extend_from_slice(&f.into_array());
-            }
-        }
-
-        buf
-
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+        unimplemented!();
     }
+
 }
 
 pub enum SigVerificationError {
