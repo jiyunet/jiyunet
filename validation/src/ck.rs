@@ -1,28 +1,28 @@
-extern crate libjiyunet_dag as dag;
-
 use std::collections::HashMap;
 
-use dag::Address;
-use dag::DagComponent;
-use dag::sig::Fingerprint;
+use core::Address;
+use core::io::BinaryComponent;
+use core::sig::{Fingerprint, ValidationKey};
+
+use dag::comp;
 
 #[derive(Copy, Clone)]
 struct IdentData {
-    key: dag::sig::ValidationKey,
+    key: ValidationKey,
     credits: u64
 }
 
 #[derive(Clone)]
 struct ValdiationState {
-    dangling: Vec<dag::Address>,
-    idents: HashMap<dag::sig::Fingerprint, IdentData>
+    dangling: Vec<Address>,
+    idents: HashMap<Fingerprint, IdentData>
 }
 
 type SegmentCost = u64;
 const IDENT_COST: SegmentCost = 1000;
 const ARTIFACT_PTR_COST: SegmentCost = 50;
 
-fn calc_segment_cost(seg: dag::comp::Segment) -> SegmentCost {
+fn calc_segment_cost(seg: comp::Segment) -> SegmentCost {
     use dag::comp::SegmentContent::*;
     match seg.content() {
         IdentDecl(_) => IDENT_COST,

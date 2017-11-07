@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::fs;
 use std::io::{Read, Write};
 
-use dag::Address;
-use dag::DagComponent;
+use core::Address;
+use core::io::BinaryComponent;
 use BlobSource;
 
 /// Stores blobs using some directory, with a root specified.

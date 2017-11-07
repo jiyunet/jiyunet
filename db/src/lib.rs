@@ -1,8 +1,9 @@
+extern crate libjiyunet_core as core;
 extern crate libjiyunet_dag as dag;
 
 pub mod fs;
 
-use dag::Address;
+use core::Address;
 use dag::DagNode;
 
 /// Specifies a type that can be used to store and retrieve blobs, given addresses.
@@ -24,7 +25,7 @@ pub struct NodeSource<S> where S: BlobSource {
 /// Some kind of error in finding a node from the datastore.
 pub enum NodeGetError {
     NotFound,
-    DecodeError(dag::DecodeError)
+    DecodeError(core::io::DecodeError)
 }
 
 impl<S> NodeSource<S> where S: BlobSource {
@@ -37,10 +38,7 @@ impl<S> NodeSource<S> where S: BlobSource {
     /// Returns the node with the given address, if possible.
     pub fn get<N: DagNode>(&self, addr: Address) -> Result<N, NodeGetError> {
         match self.source.get(addr) {
-            Some(b) => match N::from_blob(b.as_slice()) {
-                Ok((v, _)) => Ok(v),
-                Err(e) => Err(NodeGetError::DecodeError(e))
-            },
+            Some(b) => N::from_slice(b.as_slice()).map_err(|e| NodeGetError::DecodeError(e)),
             None => Err(NodeGetError::NotFound)
         }
     }
@@ -48,7 +46,7 @@ impl<S> NodeSource<S> where S: BlobSource {
     /// Stores the node with the address derived from the node.
     pub fn put<N: DagNode>(&self, node: N) -> Result<(), ()> { // FIXME Fix this when it's fixed.
         let blob = node.to_blob();
-        self.source.put(dag::Address::of(blob.as_slice()), blob)
+        self.source.put(Address::of_slice(blob.as_slice()), blob)
     }
 
 }

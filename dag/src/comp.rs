@@ -3,7 +3,7 @@ use std::io::Cursor;
 use byteorder::*; // FIXME
 
 use core::Address;
-use core::io::{BinaryComponent, DecodeError};
+use core::io::{BinaryComponent, DecodeError, WrResult};
 use core::sig;
 use core::sig::Signed;
 
@@ -32,14 +32,14 @@ pub struct Block {
 
 }
 
-impl DagNode for Signed<Block> {
+impl BinaryComponent for Block {
 
-    fn version(&self) -> u32 {
-        self.body.version
+    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
+        unimplemented!();
     }
 
-    fn timestamp(&self) -> i64 {
-        self.body.timestamp
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
+        unimplemented!();
     }
 
 }
@@ -77,7 +77,7 @@ impl BinaryComponent for SegmentContent {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 
@@ -106,7 +106,7 @@ impl BinaryComponent for Segment {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 
@@ -124,7 +124,7 @@ impl BinaryComponent for ArtifactData {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 
@@ -146,7 +146,7 @@ impl BinaryComponent for ArtifactContainer {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 
@@ -155,11 +155,11 @@ impl BinaryComponent for ArtifactContainer {
 impl DagNode for Signed<ArtifactContainer> {
 
     fn version(&self) -> u32 {
-        self.body.version
+        self.clone().extract().version
     }
 
     fn timestamp(&self) -> i64 {
-        self.body.timestamp
+        self.clone().extract().timestamp
     }
 
 }

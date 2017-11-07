@@ -6,7 +6,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 pub mod io;
 pub mod sig;
 
-use io::{BinaryComponent, DecodeError};
+use io::{BinaryComponent, DecodeError, WrResult};
 use sig::Hash;
 
 /// Used to directly address something in the DAG.  Just a SHA-256 hash of whatever it is that
@@ -34,7 +34,7 @@ impl BinaryComponent for Address {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 

@@ -6,7 +6,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use crypto::{sha2, ed25519};
 use crypto::digest::Digest;
 
-use io::BinaryComponent;
+use io::{BinaryComponent, WrResult};
 use io::DecodeError;
 
 pub const SHA256_WIDTH: usize = 32;
@@ -41,7 +41,7 @@ impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 
@@ -279,7 +279,7 @@ impl BinaryComponent for Signature {
         unimplemented!();
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()> {
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
         unimplemented!();
     }
 

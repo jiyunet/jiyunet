@@ -10,6 +10,9 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use sig;
 use sig::Signed;
 
+/// Type alias for `to_writer`.
+pub type WrResult = Result<(), ()>;
+
 /// Defines something that is used to make up the DAG.  Does not have to be a standalone node
 /// (see `DagNode`) but does have to be able to have a standard representation as bytes.
 pub trait BinaryComponent where Self: Clone {
@@ -23,7 +26,7 @@ pub trait BinaryComponent where Self: Clone {
     }
 
     /// Writes the binary representation of itself to the byte writer, potentially returning the total number of bytes written.
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> Result<usize, ()>;
+    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult;
 
     /// Converts the component into its byte representation.  Should not be able to fail.
     fn to_blob(&self) -> Vec<u8> {
