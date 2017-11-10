@@ -300,7 +300,7 @@ impl BinaryComponent for ValidationKey {
         match read.read_u8().map_err(|_| DecodeError)? {
             0x00 => {
                 let mut buf = [0; 32];
-                read.read(&mut buf);
+                read.read(&mut buf).map_err(|_| DecodeError)?;
                 Ok(Ed25519(buf))
             },
             _ => Err(DecodeError)

@@ -43,7 +43,7 @@ impl core::io::BinaryComponent for ConnectionScheme {
         }).map_err(|_| ())?;
 
         match self {
-            &Tcp(host, port) => {
+            &Tcp(ref host, port) => {
                 host.to_writer(write)?;
                 write.write_u16::<BigEndian>(port).map_err(|_| ())?;
             }
