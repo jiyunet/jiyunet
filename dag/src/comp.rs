@@ -1,5 +1,3 @@
-use std::io::Cursor;
-
 use byteorder::*; // FIXME
 
 use core::Address;
@@ -8,6 +6,47 @@ use core::sig;
 use core::sig::Signed;
 
 use DagNode;
+
+/*
+TODO Fix the matching for multivec_read.
+
+macro_rules! multivec_read {
+    ($rdr:ident ; $( $dtype:ty => $dest:ident ),+) => {
+        let mut lens = vec![
+            $(
+                $rdr.read_u16::<BigEndian>()
+                    .map_err(|_| DecodeError)
+                    .expect(format!("Error trying to parse qty of {}", stringify!($dtype))
+                        .to_str()),
+            )+
+        ];
+
+        let mut i = 0; // Horrible hacks.
+        $(
+            for _ in 0..lens[i] {
+                $dest.push($dtype::from_reader($rdr)?);
+            }
+            i += 1; // Horrible hacks.
+        )+
+    };
+}
+
+macro_rules! multivec_write {
+    ($wtr:ident ; $( $src:expr ),+) => {
+        $(
+            if $src.len() >= 65536 {
+                return Err(DecodeError);
+            }
+            $wtr.write_u16::<BigEndian>($src.len() as u16).map_err(|_| DecodeError)?;
+        )+
+        $(
+            for e in $src {
+                e.to_writer($wtr)?;
+            }
+        )+
+    };
+}
+*/
 
 /// Main type of node on the dag.  Primary unit of time and validation.
 ///
@@ -34,12 +73,50 @@ pub struct Block {
 
 impl BinaryComponent for Block {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
+        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let pc = read.read_u8().map_err(|_| DecodeError)?;
+        let sc = read.read_u16::<BigEndian>().map_err(|_| DecodeError)?;
+
+        let mut pars = Vec::with_capacity(pc as usize);
+        let mut segs = Vec::with_capacity(sc as usize);
+
+        for _ in 0..pc {
+            pars.push(Address::from_reader(read)?);
+        }
+
+        for _ in 0..sc {
+            segs.push(Signed::from_reader(read)?); // This is kinda misleading, but the type inferencing works out.
+        }
+
+        Ok(Block {
+            version: ver,
+            timestamp: ts,
+            parents: pars,
+            segments: segs
+        })
+
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
+        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        write.write_u8(self.parents.len() as u8).map_err(|_| ())?;
+        write.write_u16::<BigEndian>(self.segments.len() as u16).map_err(|_| ())?;
+
+        for a in &self.parents {
+            a.to_writer(write)?;
+        }
+
+        for s in &self.segments {
+            s.to_writer(write)?;
+        }
+
+        Ok(())
+
     }
 
 }
@@ -56,29 +133,38 @@ pub enum SegmentContent {
     ArtifactPointer(Address)
 }
 
-impl SegmentContent {
-
-    /// Returns the speciier for the SegmentContent used for serialization.
-    ///
-    /// TODO Make this make more sense.
-    fn specifier(&self) -> u8 {
-        use self::SegmentContent::*;
-        match self {
-            &IdentDecl(_) => 0,
-            &Artifact(_) => 1,
-            &ArtifactPointer(_) => 2
-        }
-    }
-}
-
 impl BinaryComponent for SegmentContent {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        use self::SegmentContent::*;
+        match read.read_u8()? {
+            0x00 => Ok(IdentDecl(sig::Hash::from_reader(read)?)),
+            0x01 => Ok(Artifact(ArtifactData::from_reader(read)?)),
+            0x02 => Ok(ArtifactPointer(Address::from_reader(read)?)),
+            _ => Err(DecodeError)
+        }
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        use self::SegmentContent::*;
+
+        // Write the specifier.
+        write.write_u8(match *self {
+            IdentDecl(_) => 0x00,
+            Artifact(_) => 0x01,
+            ArtifactPointer(_) => 0x02
+        }).map_err(|_| ())?;
+
+        // Write the actual content.
+        match self {
+            &IdentDecl(h) => h.to_writer(write)?,
+            &Artifact(ref ad) => ad.to_writer(write)?,
+            &ArtifactPointer(ap) => ap.to_writer(write)?
+        }
+
+        Ok(())
+
     }
 
 }
@@ -102,12 +188,22 @@ impl Segment {
 
 impl BinaryComponent for Segment {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let cont = SegmentContent::from_reader(read)?;
+
+        Ok(Segment {
+            timestamp: ts,
+            content: cont
+        })
+
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        self.content.to_writer(write)?;
+        Ok(())
     }
 
 }
@@ -120,12 +216,24 @@ pub struct ArtifactData {
 
 impl BinaryComponent for ArtifactData {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let sp = read.read_u16::<BigEndian>()?;
+        let mut b = vec![0; read.read_u64::<BigEndian>()? as usize];
+        read.read(b.as_mut_slice())?;
+
+        Ok(ArtifactData {
+            spec: sp,
+            body: b
+        })
+
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        write.write_u16::<BigEndian>(self.spec).map_err(|_| ())?;
+        write.write_u64::<BigEndian>(self.body.len() as u64).map_err(|_| ())?;
+        write.write_all(self.body.as_slice()).map_err(|_| ())?;
+        Ok(())
     }
 
 }
@@ -142,12 +250,25 @@ pub struct ArtifactContainer {
 
 impl BinaryComponent for ArtifactContainer {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
+        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let cont = SegmentContent::from_reader(read)?;
+
+        Ok(ArtifactContainer {
+            version: ver,
+            timestamp: ts,
+            content: cont
+        })
+
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
+        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        self.content.to_writer(write)?;
+        Ok(())
     }
 
 }
@@ -167,8 +288,20 @@ impl DagNode for Signed<ArtifactContainer> {
 #[cfg(test)]
 mod test {
 
+    use std::io::Cursor;
+
     use super::*;
     use super::SegmentContent::*;
+
+    fn encode_and_decode<T: BinaryComponent>(t: T) -> T {
+
+        let mut c = Cursor::new(Vec::new());
+        t.to_writer(&mut c).unwrap();
+        let d = c.into_inner();
+        println!("{:?}", d);
+        T::from_reader(&mut Cursor::new(d)).unwrap()
+
+    }
 
     #[test]
     fn ck_block_between_blob() {
@@ -180,7 +313,7 @@ mod test {
             segments: vec![]
         };
 
-        assert_eq!(block, Block::from_blob(block.to_blob().as_slice()).unwrap().0)
+        assert_eq!(block, encode_and_decode(block.clone()))
 
     }
 
@@ -189,10 +322,10 @@ mod test {
 
         let seg = Segment {
             timestamp: 123456789,
-            content: IdentDecl(sig::Hash::from_blob(&[0, 1, 2, 3]))
+            content: IdentDecl(sig::Hash::of_slice(&[1, 2, 3, 4]))
         };
 
-        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+        assert_eq!(seg, encode_and_decode(seg.clone()));
 
     }
 
@@ -207,7 +340,7 @@ mod test {
             })
         };
 
-        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+        assert_eq!(seg, encode_and_decode(seg.clone()));
 
     }
 
@@ -216,10 +349,10 @@ mod test {
 
         let seg = Segment {
             timestamp: 80,
-            content: ArtifactPointer(Address::of(&[1, 3, 3, 7]))
+            content: ArtifactPointer(Address::of_slice(&[1, 3, 3, 7]))
         };
 
-        assert_eq!(seg, Segment::from_blob(seg.to_blob().as_slice()).unwrap().0);
+        assert_eq!(seg, encode_and_decode(seg.clone()));
 
     }
 

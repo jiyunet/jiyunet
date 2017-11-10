@@ -37,12 +37,22 @@ impl<T> Signed<T> where T: BinaryComponent {
 
 impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let sig = Signature::from_reader(read)?;
+        let body = T::from_reader(read)?;
+
+        Ok(Signed {
+            signature: sig,
+            body: body
+        })
+
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        self.signature.to_writer(write)?;
+        self.body.to_writer(write)?;
+        Ok(())
     }
 
 }
@@ -92,6 +102,21 @@ impl Hash {
 
 }
 
+impl BinaryComponent for Hash {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        let mut buf = [0; SHA256_WIDTH];
+        read.read(&mut buf);
+        Ok(Hash::new(buf))
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        let &Hash(d) = self;
+        write.write(&d).map(|_| ()).map_err(|_| ())
+    }
+
+}
+
 impl Clone for Hash {
     fn clone(&self) -> Self {
         *self // REEE
@@ -103,24 +128,39 @@ impl Clone for Hash {
 pub struct Fingerprint(Hash);
 
 impl Fingerprint {
-    pub fn new(hex: [u8; SHA256_WIDTH]) -> Fingerprint {
-        Fingerprint(Hash::new(hex))
+
+    pub fn new(hash: Hash) -> Fingerprint {
+        Fingerprint(hash)
+    }
+
+    pub fn from_raw(hex: [u8; SHA256_WIDTH]) -> Fingerprint {
+        Fingerprint::new(Hash::new(hex))
     }
 
     pub fn into_hash(self) -> Hash {
         // TODO Make this all From<T> or whatever.
-        let Fingerprint(hash) = self; // Pattern matching! ^_^
-        hash
+        self.0
     }
 
     pub fn into_array(self) -> [u8; SHA256_WIDTH] {
-        let Fingerprint(Hash(s)) = self; // Even more pattern matching! ^_^
-        s
+        self.0 .0 // The space makes the `.0.0` not be interpreted as a floating-point literal.
     }
+
+}
+
+impl BinaryComponent for Fingerprint {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        Ok(Fingerprint::new(Hash::from_reader(read)?))
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        self.0.to_writer(write)
+    }
+
 }
 
 /// A signature algorithm scheme.  Only supports Ed25519 for now.
-/// FIXME There is a better way to keep track of these in a modular manner.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Scheme {
     Ed25519,
@@ -138,20 +178,18 @@ impl Scheme {
         }
     }
 
-    /// Returns the specifier byte for this signature scheme.
-    fn to_specifier(&self) -> u8 {
-        use self::Scheme::*;
-        match self {
-            &Ed25519 => 0x00,
-        }
-    }
-
-    /// Returns the signature scheme from the given specifier byte.
-    fn from_specifier(s: u8) -> Option<Scheme> {
+    pub fn from_specifier(s: u8) -> Option<Scheme> {
         use self::Scheme::*;
         match s {
             0x00 => Some(Ed25519),
-            _ => None,
+            _ => None
+        }
+    }
+
+    pub fn to_specifier(&self) -> u8 {
+        use self::Scheme::*;
+        match *self {
+            Ed25519 => 0x00
         }
     }
 
@@ -160,7 +198,24 @@ impl Scheme {
 /// A keypair using some signature algorithm.  Only support Ed25519 for now.
 #[derive(Copy)]
 pub enum Keypair {
-    Ed25519([u8; 64], [u8; 32]),
+
+    /// Edwards curve signature algorithm.  `(private key, public key)`
+    Ed25519([u8; 64], [u8; 32])
+
+}
+
+impl Keypair {
+
+    pub fn to_validation_key(&self) -> ValidationKey {
+        match *self {
+            Keypair::Ed25519(_, k) => ValidationKey::Ed25519(k)
+        }
+    }
+
+    pub fn to_fingerprint(&self) -> Fingerprint {
+        self.to_validation_key().to_fingerprint()
+    }
+
 }
 
 impl Clone for Keypair {
@@ -170,34 +225,12 @@ impl Clone for Keypair {
 }
 
 impl Eq for Keypair {}
+#[allow(unreachable_patterns)]
 impl PartialEq for Keypair {
     fn eq(&self, other: &Self) -> bool {
         use self::Keypair::*;
         match (*self, *other) {
             (Ed25519(ap, ak), Ed25519(bp, bk)) => arr_eq(&ap, &bp) && arr_eq(&ak, &bk),
-            _ => false,
-        }
-    }
-}
-
-/// A public key used to validate `Signed<T>` structures.
-#[derive(Copy)]
-pub enum ValidationKey {
-    Ed25519([u8; 64]),
-}
-
-impl Clone for ValidationKey {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl Eq for ValidationKey {}
-impl PartialEq for ValidationKey {
-    fn eq(&self, other: &Self) -> bool {
-        use self::ValidationKey::*;
-        match (*self, *other) {
-            (Ed25519(a), Ed25519(b)) => arr_eq(&a, &b),
             _ => false,
         }
     }
@@ -210,7 +243,7 @@ impl Keypair {
         match self {
             &Keypair::Ed25519(kpriv, kpub) => {
                 let q = ed25519::signature(&hash.into_array(), &kpriv);
-                Signature::Ed25519(q, Fingerprint::new(kpub))
+                Signature::Ed25519(q, Fingerprint::new(Hash::of_slice(&kpub))) // FIXME Hash it to get the actual fingerprint.
             }
         }
     }
@@ -218,10 +251,46 @@ impl Keypair {
     /// Converts this keypair into *just* the validation (public) key.
     pub fn into_pubkey(self) -> ValidationKey {
         match self {
-            Keypair::Ed25519(k, _) => ValidationKey::Ed25519(k),
+            Keypair::Ed25519(_, k) => ValidationKey::Ed25519(k),
         }
     }
 
+}
+
+/// A public key used to validate `Signed<T>` structures.
+#[derive(Copy)]
+pub enum ValidationKey {
+    Ed25519([u8; 32]),
+}
+
+impl ValidationKey {
+
+    pub fn to_fingerprint(&self) -> Fingerprint {
+        use self::ValidationKey::*;
+        Fingerprint::new(match *self {
+            Ed25519(k) => Hash::of_slice(&k)
+        })
+    }
+
+}
+
+impl Clone for ValidationKey {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl Eq for ValidationKey {}
+
+#[allow(unreachable_patterns)]
+impl PartialEq for ValidationKey {
+    fn eq(&self, other: &Self) -> bool {
+        use self::ValidationKey::*;
+        match (*self, *other) {
+            (Ed25519(a), Ed25519(b)) => arr_eq(&a, &b),
+            _ => false,
+        }
+    }
 }
 
 /// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
@@ -275,12 +344,28 @@ impl Signature {
 
 impl BinaryComponent for Signature {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        match Scheme::from_specifier(read.read_u8().map_err(|_| DecodeError)?) {
+            Some(s) => match s {
+                Scheme::Ed25519 => {
+                    let mut sd = [0; 64];
+                    read.read(&mut sd).map_err(|_| DecodeError)?;
+                    let f = Fingerprint::from_reader(read)?;
+                    Ok(Signature::Ed25519(sd, f))
+                }
+            },
+            None => Err(DecodeError)
+        }
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        match self {
+            &Signature::Ed25519(t, f) => {
+                write.write(&t).map_err(|_| ())?;
+                f.to_writer(write)?;
+            }
+        }
+        Ok(())
     }
 
 }
@@ -290,6 +375,7 @@ pub enum SigVerificationError {
     MismatchedKey,
 }
 
+#[allow(unreachable_patterns)] // Remove this when necessary.
 pub fn verify(sig: Signature, vk: ValidationKey, data: &[u8]) -> Result<(), SigVerificationError> {
     use self::SigVerificationError::*;
     match (sig, vk) {

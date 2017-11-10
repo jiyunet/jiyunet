@@ -14,19 +14,23 @@ use sig::Signed;
 pub type WrResult = Result<(), ()>;
 
 /// Defines something that is used to make up the DAG.  Does not have to be a standalone node
-/// (see `DagNode`) but does have to be able to have a standard representation as bytes.
+/// (see `DagNode`) but does have to be able to have a standard representation as bytes.  We have
+/// to do this all by hand because we need to ensure that the exact representation of blocks WILL
+/// NOT change without us actually changing it, so we can't risk a dependency slightly changing how
+/// it encodes structrues.  We also have a special way of encoding certain things, which can't be
+/// easily described to a general-purpose library.
 pub trait BinaryComponent where Self: Clone {
 
     /// Reads input from some kind of byte reader, potentially failing.
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError>;
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError>;
 
     /// Decodes from a slice, potentially failing.
     fn from_slice(s: &[u8]) -> Result<Self, DecodeError> {
-        Self::from_reader(Cursor::new(s))
+        Self::from_reader(&mut Cursor::new(s))
     }
 
     /// Writes the binary representation of itself to the byte writer, potentially returning the total number of bytes written.
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult;
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult;
 
     /// Converts the component into its byte representation.  Should not be able to fail.
     fn to_blob(&self) -> Vec<u8> {

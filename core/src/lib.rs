@@ -17,8 +17,12 @@ pub struct Address(sig::Hash);
 impl Address {
 
     /// Creates a new address, assuming the specified hash data.
-    pub fn new(hex: [u8; sig::SHA256_WIDTH]) -> Address {
-        Address(sig::Hash::new(hex))
+    pub fn new(hash: Hash) -> Address {
+        Address(hash)
+    }
+
+    pub fn from_raw(hex: [u8; sig::SHA256_WIDTH]) -> Address {
+        Address::new(Hash::new(hex))
     }
 
     /// Returns the address of the given blob, assuming that it's a node in a dag.
@@ -30,12 +34,13 @@ impl Address {
 
 impl BinaryComponent for Address {
 
-    fn from_reader<R: ReadBytesExt>(read: R) -> Result<Self, DecodeError> {
-        unimplemented!();
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        Ok(Address::new(Hash::from_reader(read)?))
     }
 
-    fn to_writer<W: WriteBytesExt>(&self, write: W) -> WrResult {
-        unimplemented!();
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        let &Address(h) = self;
+        h.to_writer(write)
     }
 
 }

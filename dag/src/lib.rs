@@ -3,8 +3,6 @@ extern crate libjiyunet_core as core;
 extern crate byteorder;
 extern crate crypto;
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
-
 use core::io::BinaryComponent;
 use core::sig::Signed;
 
