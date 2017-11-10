@@ -39,6 +39,11 @@ impl<T> Signed<T> where T: BinaryComponent {
         self.body.clone()
     }
 
+    /// Returns a copy of the internal signature data.
+    pub fn sig(&self) -> Signature {
+        self.signature.clone()
+    }
+
 }
 
 impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
@@ -241,7 +246,6 @@ impl Clone for Keypair {
     }
 }
 
-impl Eq for Keypair {}
 #[allow(unreachable_patterns)]
 impl PartialEq for Keypair {
     fn eq(&self, other: &Self) -> bool {
@@ -253,8 +257,10 @@ impl PartialEq for Keypair {
     }
 }
 
+impl Eq for Keypair {}
+
 /// A public key used to validate `Signed<T>` structures.
-#[derive(Copy)]
+#[derive(Copy, Hash, Debug)]
 pub enum ValidationKey {
     Ed25519([u8; 32]),
 }
@@ -286,6 +292,38 @@ impl PartialEq for ValidationKey {
 }
 
 impl Eq for ValidationKey {}
+
+impl BinaryComponent for ValidationKey {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        use self::ValidationKey::*;
+        match read.read_u8().map_err(|_| DecodeError)? {
+            0x00 => {
+                let mut buf = [0; 32];
+                read.read(&mut buf);
+                Ok(Ed25519(buf))
+            },
+            _ => Err(DecodeError)
+        }
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        use self::ValidationKey::*;
+
+        write.write_u8(match self {
+            &Ed25519(_) => 0x00
+        }).map_err(|_| ())?;
+
+        match self {
+            &Ed25519(k) => write.write(&k).map(|_| ()).map_err(|_| ())?
+        }
+
+        Ok(())
+
+    }
+
+}
 
 /// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
 #[derive(Copy)]
@@ -367,12 +405,15 @@ impl BinaryComponent for Signature {
 
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum SigVerificationError {
-    IncompatibleSignatureSchemes,
-    MismatchedKey,
+    FingerprintMismatch,
+    SignatureSchemeMismatch,
+    KeyMismatch,
 }
 
 #[allow(unreachable_patterns)] // Remove this when necessary.
+/// Verifies that a `Signature`, `ValidationKey`, and binary data match properly.
 pub fn verify(sig: Signature, vk: ValidationKey, data: &[u8]) -> Result<(), SigVerificationError> {
     use self::SigVerificationError::*;
     match (sig, vk) {
@@ -380,11 +421,26 @@ pub fn verify(sig: Signature, vk: ValidationKey, data: &[u8]) -> Result<(), SigV
             if ed25519::verify(data, &kd, &sd) {
                 Ok(())
             } else {
-                Err(MismatchedKey)
+                Err(KeyMismatch)
             }
         }
-        _ => Err(IncompatibleSignatureSchemes),
+        _ => Err(SignatureSchemeMismatch),
     }
+}
+
+/// Verifies that a `Signed<T>` is correct, assuming the specified `ValidationKey`.
+pub fn verify_signed<T: BinaryComponent>(st: &Signed<T>, vk: ValidationKey) -> Result<(), SigVerificationError> {
+
+    use self::SigVerificationError::*;
+
+    let sfp = st.sig().into_fingerprint(); // Signature FingerPrint
+
+    if sfp != vk.into() {
+        Err(FingerprintMismatch)
+    } else {
+        verify_signed(st, vk)
+    }
+
 }
 
 fn arr_eq<T: PartialEq>(a: &[T], b: &[T]) -> bool {

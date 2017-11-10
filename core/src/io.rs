@@ -5,7 +5,7 @@ use std::fmt;
 use std::io;
 use std::io::Cursor;
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use sig;
 use sig::Signed;
@@ -70,4 +70,48 @@ impl fmt::Display for DecodeError {
 
 impl error::Error for DecodeError {
     fn description(&self) -> &str { "a decoding error" }
+}
+
+impl BinaryComponent for String {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        let len = read.read_u64::<BigEndian>().map_err(|_| DecodeError)?;
+        let mut utf8 = vec![0; len as usize];
+        read.read(utf8.as_mut_slice()).map_err(|_| DecodeError)?;
+        match String::from_utf8(utf8) {
+            Ok(s) => Ok(s),
+            Err(_) => Err(DecodeError)
+        }
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+        write.write_u64::<BigEndian>(self.len() as u64).map_err(|_| ())?;
+        write.write(self.as_bytes()).map_err(|_| ())?;
+        Ok(())
+    }
+
+}
+
+impl<T> BinaryComponent for Option<T> where T: BinaryComponent {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        match read.read_u8().map_err(|_| DecodeError)? {
+            0 => Ok(None),
+            1 => Ok(Some(T::from_reader(read)?)),
+            _ => Err(DecodeError)
+        }
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        write.write_u8(if self.is_some() { 1 } else { 0 }).map_err(|_| ())?;
+        match self {
+            &Some(ref t) => t.to_writer(write)?,
+            &None => {}
+        }
+
+        Ok(())
+
+    }
+
 }
