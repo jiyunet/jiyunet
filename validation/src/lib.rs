@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 extern crate libjiyunet_core as core;
 extern crate libjiyunet_dag as dag;
 extern crate libjiyunet_db as db;

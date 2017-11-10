@@ -106,7 +106,7 @@ impl BinaryComponent for Hash {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
         let mut buf = [0; SHA256_WIDTH];
-        read.read(&mut buf);
+        read.read(&mut buf)?;
         Ok(Hash::new(buf))
     }
 
@@ -306,6 +306,7 @@ impl Clone for Signature {
 }
 
 impl Eq for Signature {}
+#[allow(unreachable_patterns)]
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
         use self::Signature::*;
@@ -318,7 +319,7 @@ impl PartialEq for Signature {
 
 impl Debug for Signature {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        f.write_str("[sig]"); // This is okay because it's just binary data anyways.
+        f.write_str("[sig]")?; // This is okay because it's just binary data anyways.
         Ok(())
     }
 }
@@ -326,6 +327,7 @@ impl Debug for Signature {
 impl Signature {
 
     /// Returns the signature scheme used for this signature.
+    #[allow(dead_code)]
     fn scheme(&self) -> Scheme {
         use self::Signature::*;
         match self {
