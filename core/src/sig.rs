@@ -1,4 +1,5 @@
 
+use std::convert::{From, Into};
 use std::fmt::{Debug, Error, Formatter};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
@@ -33,6 +34,11 @@ impl<T> Signed<T> where T: BinaryComponent {
         self.body
     }
 
+    /// Extracts a copy of the body.
+    pub fn extract_owned(&self) -> T {
+        self.body.clone()
+    }
+
 }
 
 impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
@@ -61,17 +67,6 @@ impl<T> BinaryComponent for Signed<T> where T: BinaryComponent {
 #[derive(Copy, Ord, PartialOrd, Hash, Debug)]
 pub struct Hash([u8; SHA256_WIDTH]);
 
-impl Eq for Hash {}
-impl PartialEq for Hash {
-    fn eq(&self, other: &Self) -> bool {
-
-        let &Hash(a) = self;
-        let &Hash(b) = other;
-        a == b
-
-    }
-}
-
 impl Hash {
 
     /// Creates a new hash with the given contents.
@@ -79,27 +74,42 @@ impl Hash {
         Hash(hex)
     }
 
-    /// Converts this hash into a `Fingerprint`, presumably used for creating a `Signature`.
-    pub fn into_fingerprint(self) -> Fingerprint {
-        Fingerprint(self)
-    }
-
-    /// (does what it says on the tin)
-    pub fn into_array(self) -> [u8; SHA256_WIDTH] {
-        let Hash(h) = self;
-        h
-    }
-
+    /// Returns the SHA-256 of the blob of data.
     pub fn of_slice(data: &[u8]) -> Hash {
-
         let mut hasher = sha2::Sha256::new();
         hasher.input(data);
         let mut out = [0u8; SHA256_WIDTH];
         hasher.result(&mut out);
-        Hash(out)
-
+        Hash::new(out)
     }
 
+    /// Converts into the raw byte array form.
+    pub fn into_array(self) -> [u8; SHA256_WIDTH] {
+        self.0
+    }
+
+}
+
+impl Clone for Hash {
+    fn clone(&self) -> Self {
+        *self // REEE
+    }
+}
+
+impl PartialEq for Hash {
+    fn eq(&self, other: &Self) -> bool {
+        let &Hash(a) = self;
+        let &Hash(b) = other;
+        a == b
+    }
+}
+
+impl Eq for Hash {}
+
+impl Into<[u8; SHA256_WIDTH]> for Hash {
+    fn into(self) -> [u8; SHA256_WIDTH] {
+        self.into_array()
+    }
 }
 
 impl BinaryComponent for Hash {
@@ -117,12 +127,6 @@ impl BinaryComponent for Hash {
 
 }
 
-impl Clone for Hash {
-    fn clone(&self) -> Self {
-        *self // REEE
-    }
-}
-
 /// The SHA-256 hash of an identity declaration artifact.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Fingerprint(Hash);
@@ -133,19 +137,24 @@ impl Fingerprint {
         Fingerprint(hash)
     }
 
-    pub fn from_raw(hex: [u8; SHA256_WIDTH]) -> Fingerprint {
-        Fingerprint::new(Hash::new(hex))
-    }
+}
 
-    pub fn into_hash(self) -> Hash {
-        // TODO Make this all From<T> or whatever.
+impl From<[u8; SHA256_WIDTH]> for Fingerprint {
+    fn from(d: [u8; SHA256_WIDTH]) -> Fingerprint {
+        Fingerprint::new(Hash::new(d))
+    }
+}
+
+impl Into<[u8; SHA256_WIDTH]> for Fingerprint {
+    fn into(self) -> [u8; SHA256_WIDTH] {
+        self .0 .0
+    }
+}
+
+impl Into<Hash> for Fingerprint {
+    fn into(self) -> Hash {
         self.0
     }
-
-    pub fn into_array(self) -> [u8; SHA256_WIDTH] {
-        self.0 .0 // The space makes the `.0.0` not be interpreted as a floating-point literal.
-    }
-
 }
 
 impl BinaryComponent for Fingerprint {
@@ -206,16 +215,24 @@ pub enum Keypair {
 
 impl Keypair {
 
-    pub fn to_validation_key(&self) -> ValidationKey {
-        match *self {
-            Keypair::Ed25519(_, k) => ValidationKey::Ed25519(k)
+    /// Generates a signature for the given hash using this keypair.
+    pub fn sign(&self, hash: Hash) -> Signature {
+        match self {
+            &Keypair::Ed25519(kpriv, kpub) => {
+                let q = ed25519::signature(&hash.into_array(), &kpriv);
+                Signature::Ed25519(q, Fingerprint::new(Hash::of_slice(&kpub)))
+            }
         }
     }
 
-    pub fn to_fingerprint(&self) -> Fingerprint {
-        self.to_validation_key().to_fingerprint()
-    }
+}
 
+impl Into<ValidationKey> for Keypair {
+    fn into(self) -> ValidationKey {
+        match self {
+            Keypair::Ed25519(_, k) => ValidationKey::Ed25519(k)
+        }
+    }
 }
 
 impl Clone for Keypair {
@@ -236,42 +253,19 @@ impl PartialEq for Keypair {
     }
 }
 
-impl Keypair {
-
-    /// Generates a signature for the given hash using this keypair.
-    pub fn sign(&self, hash: Hash) -> Signature {
-        match self {
-            &Keypair::Ed25519(kpriv, kpub) => {
-                let q = ed25519::signature(&hash.into_array(), &kpriv);
-                Signature::Ed25519(q, Fingerprint::new(Hash::of_slice(&kpub))) // FIXME Hash it to get the actual fingerprint.
-            }
-        }
-    }
-
-    /// Converts this keypair into *just* the validation (public) key.
-    pub fn into_pubkey(self) -> ValidationKey {
-        match self {
-            Keypair::Ed25519(_, k) => ValidationKey::Ed25519(k),
-        }
-    }
-
-}
-
 /// A public key used to validate `Signed<T>` structures.
 #[derive(Copy)]
 pub enum ValidationKey {
     Ed25519([u8; 32]),
 }
 
-impl ValidationKey {
-
-    pub fn to_fingerprint(&self) -> Fingerprint {
+impl Into<Fingerprint> for ValidationKey {
+    fn into(self) -> Fingerprint {
         use self::ValidationKey::*;
-        Fingerprint::new(match *self {
+        Fingerprint::new(match self {
             Ed25519(k) => Hash::of_slice(&k)
         })
     }
-
 }
 
 impl Clone for ValidationKey {
@@ -279,8 +273,6 @@ impl Clone for ValidationKey {
         *self
     }
 }
-
-impl Eq for ValidationKey {}
 
 #[allow(unreachable_patterns)]
 impl PartialEq for ValidationKey {
@@ -292,6 +284,8 @@ impl PartialEq for ValidationKey {
         }
     }
 }
+
+impl Eq for ValidationKey {}
 
 /// The actual signature data (signed hash) of some blob and the fingerprint of the keypair used to create it.  Supports multiple schemes.
 #[derive(Copy)]
@@ -305,7 +299,6 @@ impl Clone for Signature {
     }
 }
 
-impl Eq for Signature {}
 #[allow(unreachable_patterns)]
 impl PartialEq for Signature {
     fn eq(&self, other: &Self) -> bool {
@@ -316,6 +309,8 @@ impl PartialEq for Signature {
         }
     }
 }
+
+impl Eq for Signature {}
 
 impl Debug for Signature {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
