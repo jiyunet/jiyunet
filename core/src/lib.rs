@@ -30,6 +30,10 @@ impl Address {
         Address(Hash::of_slice(blob))
     }
 
+    pub fn of_bincomp<T: BinaryComponent>(t: &T) -> Address {
+        Address::new(t.get_hash())
+    }
+
 }
 
 impl BinaryComponent for Address {

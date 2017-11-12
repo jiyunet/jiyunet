@@ -71,6 +71,14 @@ pub struct Block {
 
 }
 
+impl Block {
+
+    pub fn parents(&self) -> Vec<Address> {
+        self.parents.clone()
+    }
+
+}
+
 impl BinaryComponent for Block {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
