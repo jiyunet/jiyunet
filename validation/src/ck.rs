@@ -18,8 +18,7 @@ type VBlock = Signed<comp::Block>;
 
 #[derive(Clone, Eq, PartialEq)]
 struct ValdiationState {
-    base: (Address, VBlock),
-    uncomfirmed: HashMap<Address, VBlock>,
+    pending: HashMap<Address, VBlock>,
     idents: HashMap<Fingerprint, IdentData>
 }
 
@@ -30,32 +29,12 @@ const ACCEPTANCE_THRESHOLD: u64 = 5;
 impl ValdiationState {
 
     pub fn add_block(&mut self, block: VBlock) -> Result<(), BlockValidationError> {
-        unimplemented!(); // TODO Make this just validate signatures for now.
+        self.pending.insert(Address::of_bincomp(&block), block);
+        Ok(()) // TODO This isn't correct.  We need to actually check things.
     }
 
-    /// Checks to see if the block is either the last locked-in block or that we have it in our list of pending blocks.
-    fn is_address_recent(&self, addr: Address) -> bool {
-        self.base.0 == addr || self.uncomfirmed.contains_key(&addr)
-    }
-
-    /// Finds the highest height that the given address has in our set of pending blocks.
-    fn get_relative_block_height(&self, addr: Address) -> Option<u32> {
-        if self.is_address_recent(addr) {
-            if self.base.0 == addr {
-                Some(0)
-            } else {
-                match self.uncomfirmed.get(&addr) {
-                    Some(b) => b.extract_owned().parents().iter()
-                                .map(|p| self.get_relative_block_height(*p))
-                                .filter(|h| h.is_some())
-                                .map(|v| v.unwrap())
-                                .max(),
-                    None => None
-                }
-            }
-        } else {
-            None
-        }
+    pub fn find_key(&self, fp: Fingerprint) -> Option<ValidationKey> {
+        self.idents.get(&fp).map(|id| id.key)
     }
 
 }
