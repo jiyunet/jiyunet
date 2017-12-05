@@ -1,4 +1,4 @@
-extern crate libjiyunet_core as core;
+extern crate jiyunet_core as core;
 
 extern crate byteorder;
 extern crate crypto;

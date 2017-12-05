@@ -1,8 +1,8 @@
 #![allow(warnings)]
 
-extern crate libjiyunet_core as core;
-extern crate libjiyunet_dag as dag;
-extern crate libjiyunet_db as db;
+extern crate jiyunet_core as core;
+extern crate jiyunet_dag as dag;
+extern crate jiyunet_db as db;
 
 pub mod ck;
 pub mod io;

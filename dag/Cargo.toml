@@ -1,9 +1,9 @@
 [package]
-name = "libjiyunet-dag"
+name = "jiyunet-dag"
 version = "0.1.0"
 authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
-libjiyunet-core = { path = "../core" }
+jiyunet-core = { path = "../core" }
 byteorder = "1"
 rust-crypto = "^0.2"

@@ -1,8 +1,8 @@
 [package]
-name = "libjiyunet-db"
+name = "jiyunet-db"
 version = "0.1.0"
 authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
-libjiyunet-core = { path = "../core" }
-libjiyunet-dag = { path = "../dag" }
+jiyunet-core = { path = "../core" }
+jiyunet-dag = { path = "../dag" }

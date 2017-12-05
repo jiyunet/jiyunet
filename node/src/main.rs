@@ -1,7 +1,7 @@
-extern crate libjiyunet_dag as dag;
-extern crate libjiyunet_db as db;
-extern crate libjiyunet_dht as dht;
-extern crate libjiyunet_validation as validation;
+extern crate jiyunet_dag as dag;
+extern crate jiyunet_db as db;
+extern crate jiyunet_dht as dht;
+extern crate jiyunet_validation as validation;
 
 #[macro_use]
 extern crate clap;

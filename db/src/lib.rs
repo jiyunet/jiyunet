@@ -1,5 +1,5 @@
-extern crate libjiyunet_core as core;
-extern crate libjiyunet_dag as dag;
+extern crate jiyunet_core as core;
+extern crate jiyunet_dag as dag;
 
 pub mod fs;
 

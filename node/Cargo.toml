@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
-libjiyunet-core = { path = "../core" }
-libjiyunet-dag = { path = "../dag" }
-libjiyunet-db = { path = "../db" }
-libjiyunet-dht = { path = "../dht" }
-libjiyunet-validation = { path = "../validation" }
+jiyunet-core = { path = "../core" }
+jiyunet-dag = { path = "../dag" }
+jiyunet-db = { path = "../db" }
+jiyunet-dht = { path = "../dht" }
+jiyunet-validation = { path = "../validation" }
 clap = "2.27.1"
 
 [[bin]]

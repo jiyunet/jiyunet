@@ -1,5 +1,5 @@
 [package]
-name = "libjiyunet-core"
+name = "jiyunet-core"
 version = "0.1.0"
 authors = ["treyzania <treyzania@gmail.com>"]
 
