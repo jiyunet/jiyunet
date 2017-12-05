@@ -7,7 +7,7 @@ Further documentation can be found in my brain.
 
 *// TODO Fix this.*
 
-## Components
+## Core components
 
 * `core` : Basic primitives for IO, cryptographic signing, etc.
 
@@ -15,11 +15,15 @@ Further documentation can be found in my brain.
 
 * `db` : Storage abstraction layer
 
-* `dht` : Distributed Hash Table for node discovery, etc.
+* `dht` : Distributed Hash Table code for node discovery, etc.
 
 * `node` : Actual node software (see below)
 
 * `validation` : Validation engine used to verify new blocks, etc.
+
+### Other directories
+
+* `pylib` : Python library bindings
 
 ## Usage
 
