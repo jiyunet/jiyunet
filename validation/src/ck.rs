@@ -8,7 +8,7 @@ use core::sig::Signed;
 
 use dag::comp;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 struct IdentData {
     key: ValidationKey,
     credits: u64
@@ -16,12 +16,16 @@ struct IdentData {
 
 type VBlock = Signed<comp::Block>;
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 struct ValdiationState {
     base: (Address, VBlock),
     uncomfirmed: HashMap<Address, VBlock>,
     idents: HashMap<Fingerprint, IdentData>
 }
+
+/// Number of blocks that must be accepted before the base is moved up to the next safe block, any
+/// parial forks will hold back the "base" until they're resolved.
+const ACCEPTANCE_THRESHOLD: u64 = 5;
 
 impl ValdiationState {
 
@@ -41,22 +45,11 @@ impl ValdiationState {
                 Some(0)
             } else {
                 match self.uncomfirmed.get(&addr) {
-                    Some(b) => {
-                        let mut max = -1;
-                        for p in b.extract_owned().parents() {
-                            match self.get_relative_block_height(p).map(|h| h as i32) {
-                                Some(h) => if h > max {
-                                    max = h;
-                                },
-                                None => {}
-                            }
-                        }
-                        if max < 0 {
-                            None
-                        } else {
-                            Some(max as u32 + 1)
-                        }
-                    },
+                    Some(b) => b.extract_owned().parents().iter()
+                                .map(|p| self.get_relative_block_height(*p))
+                                .filter(|h| h.is_some())
+                                .map(|v| v.unwrap())
+                                .max(),
                     None => None
                 }
             }
