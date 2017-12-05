@@ -3,50 +3,9 @@ use byteorder::*; // FIXME
 use core::Address;
 use core::io::{BinaryComponent, DecodeError, WrResult};
 use core::sig;
-use core::sig::Signed;
+use core::sig::{Hash, Signed};
 
 use DagNode;
-
-/*
-TODO Fix the matching for multivec_read.
-
-macro_rules! multivec_read {
-    ($rdr:ident ; $( $dtype:ty => $dest:ident ),+) => {
-        let mut lens = vec![
-            $(
-                $rdr.read_u16::<BigEndian>()
-                    .map_err(|_| DecodeError)
-                    .expect(format!("Error trying to parse qty of {}", stringify!($dtype))
-                        .to_str()),
-            )+
-        ];
-
-        let mut i = 0; // Horrible hacks.
-        $(
-            for _ in 0..lens[i] {
-                $dest.push($dtype::from_reader($rdr)?);
-            }
-            i += 1; // Horrible hacks.
-        )+
-    };
-}
-
-macro_rules! multivec_write {
-    ($wtr:ident ; $( $src:expr ),+) => {
-        $(
-            if $src.len() >= 65536 {
-                return Err(DecodeError);
-            }
-            $wtr.write_u16::<BigEndian>($src.len() as u16).map_err(|_| DecodeError)?;
-        )+
-        $(
-            for e in $src {
-                e.to_writer($wtr)?;
-            }
-        )+
-    };
-}
-*/
 
 /// Main type of node on the dag.  Primary unit of time and validation.
 ///
@@ -54,8 +13,8 @@ macro_rules! multivec_write {
 /// that represent the data actually stored in the blocks.  Segments are for the actual mid-layer
 /// validation logic.  One type of segments are artifact segments, which carry actual payload data
 /// in the content layer.  Artifact contents have no bearing on validation, only total size.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Block {
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub struct BlockHeader {
 
     /// Version identifier.  TODO Formalize this.
     version: u32,
@@ -63,15 +22,15 @@ pub struct Block {
     /// Millisecond UNIX time
     timestamp: i64,
 
-    /// The addresses of the immediate parent blocks (`Signed<Block>`) to this block.
-    parents: Vec<Address>,
+    /// The merkle root of the segments in the block.
+    segments_merkle_root: Hash,
 
-    /// The segments contained within this block.
-    segments: Vec<Signed<Segment>>
+    /// The addresses of the immediate parent blocks (`Signed<Block>`) to this block.
+    parents: Vec<Address>
 
 }
 
-impl Block {
+impl BlockHeader {
 
     pub fn parents(&self) -> Vec<Address> {
         self.parents.clone()
@@ -79,31 +38,20 @@ impl Block {
 
 }
 
-impl BinaryComponent for Block {
+impl BinaryComponent for BlockHeader {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
 
         let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
         let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
-        let pc = read.read_u8().map_err(|_| DecodeError)?;
-        let sc = read.read_u16::<BigEndian>().map_err(|_| DecodeError)?;
+        let smr = Hash::from_reader(read)?;
+        let pars = Vec::<Address>::from_reader(read)?;
 
-        let mut pars = Vec::with_capacity(pc as usize);
-        let mut segs = Vec::with_capacity(sc as usize);
-
-        for _ in 0..pc {
-            pars.push(Address::from_reader(read)?);
-        }
-
-        for _ in 0..sc {
-            segs.push(Signed::from_reader(read)?); // This is kinda misleading, but the type inferencing works out.
-        }
-
-        Ok(Block {
+        Ok(BlockHeader {
             version: ver,
             timestamp: ts,
-            parents: pars,
-            segments: segs
+            segments_merkle_root: smr,
+            parents: pars
         })
 
     }
@@ -112,16 +60,43 @@ impl BinaryComponent for Block {
 
         write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
         write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
-        write.write_u8(self.parents.len() as u8).map_err(|_| ())?;
-        write.write_u16::<BigEndian>(self.segments.len() as u16).map_err(|_| ())?;
+        self.segments_merkle_root.to_writer(write)?;
+        self.parents.to_writer(write)?;
 
-        for a in &self.parents {
-            a.to_writer(write)?;
-        }
+        Ok(())
 
-        for s in &self.segments {
-            s.to_writer(write)?;
-        }
+    }
+
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Block {
+    version: u32,
+    header: Signed<BlockHeader>,
+    body: Vec<Signed<Segment>>
+}
+
+impl BinaryComponent for Block {
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
+        let head = Signed::<BlockHeader>::from_reader(read)?;
+        let body = Vec::<Signed<Segment>>::from_reader(read)?;
+
+        Ok(Block {
+            version: ver,
+            header: head,
+            body: body
+        })
+
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
+        self.header.to_writer(write)?;
+        self.body.to_writer(write)?;
 
         Ok(())
 
@@ -317,8 +292,8 @@ mod test {
         let block = Block {
             version: 42,
             timestamp: 1337,
+            segments_merkle_root: Hash::of_slice(&[1, 2, 3]),
             parents: vec![],
-            segments: vec![]
         };
 
         assert_eq!(block, encode_and_decode(block.clone()))
@@ -330,7 +305,7 @@ mod test {
 
         let seg = Segment {
             timestamp: 123456789,
-            content: IdentDecl(sig::Hash::of_slice(&[1, 2, 3, 4]))
+            content: IdentDecl(Hash::of_slice(&[1, 2, 3, 4]))
         };
 
         assert_eq!(seg, encode_and_decode(seg.clone()));

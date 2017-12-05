@@ -115,3 +115,33 @@ impl<T> BinaryComponent for Option<T> where T: BinaryComponent {
     }
 
 }
+
+impl<T> BinaryComponent for Vec<T> where T: BinaryComponent {
+
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+
+        let len = read.read_u64::<BigEndian>().map_err(|_| DecodeError)? as usize;
+
+        let mut v = Vec::with_capacity(len);
+        for _ in 0..len {
+            v.push(T::from_reader(read)?);
+        }
+
+        Ok(v)
+
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        write.write_u64::<BigEndian>(self.len() as u64).map_err(|_| ())?;
+        for e in self {
+            e.to_writer(write)?;
+        }
+
+        Ok(())
+
+    }
+
+
+}
