@@ -5,6 +5,7 @@ authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
 jiyunet-core = { path = "../core" }
+rand = "0.3"
 
 [[bin]]
 name = "jiyu-keygen"

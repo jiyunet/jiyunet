@@ -1,3 +1,6 @@
 /target/
 **/*.rs.bk
 Cargo.lock
+
+# Binary output files. (only jiyu-keygen right now)
+*.bin
