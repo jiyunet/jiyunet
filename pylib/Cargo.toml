@@ -1,0 +1,11 @@
+[package]
+name = "jiyunet-pylib"
+version = "0.1.0"
+authors = ["treyzania <treyzania@gmail.com>"]
+
+[lib]
+name = "jiyu_pylib_impl"
+crate-type = ["cdylib"]
+
+[dependencies]
+jiyunet-core = { path = "../core" }
