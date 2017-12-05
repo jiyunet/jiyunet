@@ -218,6 +218,49 @@ pub enum Keypair {
 
 }
 
+impl Debug for Keypair {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        use self::Keypair::*;
+        f.write_str(match self {
+            &Ed25519(_, _) => "[keypair Ed25519]"
+        })
+    }
+}
+
+impl ::std::fmt::Display for Keypair {
+
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+
+        use std::fmt::Write;
+        use self::Keypair::*;
+
+        match self {
+            &Ed25519(ref k, ref p) => {
+
+                f.write_str("Ed25519(")?;
+                let mut ks = String::with_capacity(128);
+                for i in 0..k.len() {
+                    write!(&mut ks, "{:X}", k[i]).expect("error printing keypair");
+                }
+
+                let mut ps = String::with_capacity(64);
+                for i in 0..p.len() {
+                    write!(&mut ps, "{:X}", p[i]).expect("error printing keypair");
+                }
+
+                f.write_str(ks.as_str())?;
+                f.write_str(", ")?;
+                f.write_str(ps.as_str())?;
+                f.write_str(")")?;
+
+            }
+        }
+
+        Ok(())
+
+    }
+}
+
 impl Keypair {
 
     /// Generates a signature for the given hash using this keypair.
@@ -228,6 +271,45 @@ impl Keypair {
                 Signature::Ed25519(q, Fingerprint::new(Hash::of_slice(&kpub)))
             }
         }
+    }
+
+}
+
+impl BinaryComponent for Keypair {
+
+    // TODO Make the 0x00 discriminators not be stupid.
+
+    fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
+        use self::Keypair::*;
+        match read.read_u8().map_err(|_| DecodeError)? {
+            0x00 => {
+                let mut kbuf = [0; 64];
+                read.read(&mut kbuf).map_err(|_| DecodeError)?;
+                let mut pbuf = [0; 32];
+                read.read(&mut pbuf).map_err(|_| DecodeError)?;
+                Ok(Ed25519(kbuf, pbuf))
+            },
+            _ => Err(DecodeError)
+        }
+    }
+
+    fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
+
+        use self::Keypair::*;
+
+        write.write_u8(match self {
+            &Ed25519(_, _) => 0x00
+        }).map_err(|_| ())?;
+
+        match self {
+            &Ed25519(k, p) => {
+                write.write(&k).map_err(|_| ())?;
+                write.write(&p).map_err(|_| ())?;
+            }
+        }
+
+        Ok(())
+
     }
 
 }

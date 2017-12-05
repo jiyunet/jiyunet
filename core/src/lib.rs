@@ -1,6 +1,10 @@
 extern crate byteorder;
 extern crate crypto;
 
+#[macro_use] extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
+
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 pub mod io;

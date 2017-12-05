@@ -119,7 +119,7 @@ mod test {
     use std::io::Cursor;
 
     use core::sig::Hash;
-    
+
     use super::*;
 
     fn encode_and_decode<T: BinaryComponent>(t: T) -> T {
