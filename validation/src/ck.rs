@@ -6,7 +6,8 @@ use core::sig;
 use core::sig::{Fingerprint, ValidationKey};
 use core::sig::Signed;
 
-use dag::comp;
+use dag::block;
+use dag::segment;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct IdentData {
@@ -14,7 +15,7 @@ struct IdentData {
     credits: u64
 }
 
-type VBlock = Signed<comp::Block>;
+type VBlock = Signed<block::Block>;
 
 #[derive(Clone, Eq, PartialEq)]
 struct ValdiationState {
@@ -48,8 +49,8 @@ type SegmentCost = u64;
 const IDENT_COST: SegmentCost = 1000;
 const ARTIFACT_PTR_COST: SegmentCost = 50;
 
-fn calc_segment_cost(seg: comp::Segment) -> SegmentCost {
-    use dag::comp::SegmentContent::*;
+fn calc_segment_cost(seg: segment::Segment) -> SegmentCost {
+    use dag::segment::SegmentContent::*;
     match seg.content() {
         IdentDecl(_) => IDENT_COST,
         Artifact(ad) => ad.to_blob().len() as SegmentCost, // TODO Make this more mathy.
