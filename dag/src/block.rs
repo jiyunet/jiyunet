@@ -43,8 +43,8 @@ impl BinaryComponent for BlockHeader {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
 
-        let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
-        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let ver = read.read_u32::<BigEndian>()?;
+        let ts = read.read_i64::<BigEndian>()?;
         let smr = Hash::from_reader(read)?;
         let pars = Vec::<Address>::from_reader(read)?;
 
@@ -59,8 +59,8 @@ impl BinaryComponent for BlockHeader {
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
 
-        write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
-        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        write.write_u32::<BigEndian>(self.version)?;
+        write.write_i64::<BigEndian>(self.timestamp)?;
         self.segments_merkle_root.to_writer(write)?;
         self.parents.to_writer(write)?;
 

@@ -40,12 +40,12 @@ impl core::io::BinaryComponent for ConnectionScheme {
 
         write.write_u8(match self {
             &Tcp(_, _) => 0x00
-        }).map_err(|_| ())?;
+        })?;
 
         match self {
             &Tcp(ref host, port) => {
                 host.to_writer(write)?;
-                write.write_u16::<BigEndian>(port).map_err(|_| ())?;
+                write.write_u16::<BigEndian>(port)?;
             }
         }
 
@@ -81,7 +81,7 @@ impl core::io::BinaryComponent for PeerRecord {
 
         let n = Option::<String>::from_reader(read)?;
         let ep = ConnectionScheme::from_reader(read)?;
-        let expr = read.read_u64::<BigEndian>().map_err(|_| DecodeError)?;
+        let expr = read.read_u64::<BigEndian>()?;
         let pk = sig::ValidationKey::from_reader(read)?;
 
         Ok(PeerRecord {
@@ -96,7 +96,7 @@ impl core::io::BinaryComponent for PeerRecord {
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
         self.name.to_writer(write)?;
         self.endpoint.to_writer(write)?;
-        write.write_u64::<BigEndian>(self.expiration).map_err(|_| ())?;
+        write.write_u64::<BigEndian>(self.expiration)?;
         self.pubkey.to_writer(write)?;
         Ok(())
     }

@@ -33,9 +33,9 @@ impl BinaryComponent for ArtifactData {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u16::<BigEndian>(self.spec).map_err(|_| ())?;
-        write.write_u64::<BigEndian>(self.body.len() as u64).map_err(|_| ())?;
-        write.write_all(self.body.as_slice()).map_err(|_| ())?;
+        write.write_u16::<BigEndian>(self.spec)?;
+        write.write_u64::<BigEndian>(self.body.len() as u64)?;
+        write.write_all(self.body.as_slice())?;
         Ok(())
     }
 

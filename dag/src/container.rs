@@ -21,8 +21,8 @@ impl BinaryComponent for ArtifactContainer {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
 
-        let ver = read.read_u32::<BigEndian>().map_err(|_| DecodeError)?;
-        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let ver = read.read_u32::<BigEndian>()?;
+        let ts = read.read_i64::<BigEndian>()?;
         let cont = SegmentContent::from_reader(read)?;
 
         Ok(ArtifactContainer {
@@ -34,8 +34,8 @@ impl BinaryComponent for ArtifactContainer {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u32::<BigEndian>(self.version).map_err(|_| ())?;
-        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        write.write_u32::<BigEndian>(self.version)?;
+        write.write_i64::<BigEndian>(self.timestamp)?;
         self.content.to_writer(write)?;
         Ok(())
     }

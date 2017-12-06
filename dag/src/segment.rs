@@ -39,7 +39,7 @@ impl BinaryComponent for SegmentContent {
             IdentDecl(_) => 0x00,
             Artifact(_) => 0x01,
             ArtifactPointer(_) => 0x02
-        }).map_err(|_| ())?;
+        })?;
 
         // Write the actual content.
         match self {
@@ -82,7 +82,7 @@ impl BinaryComponent for Segment {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
 
-        let ts = read.read_i64::<BigEndian>().map_err(|_| DecodeError)?;
+        let ts = read.read_i64::<BigEndian>()?;
         let cont = SegmentContent::from_reader(read)?;
 
         Ok(Segment {
@@ -93,7 +93,7 @@ impl BinaryComponent for Segment {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_i64::<BigEndian>(self.timestamp).map_err(|_| ())?;
+        write.write_i64::<BigEndian>(self.timestamp)?;
         self.content.to_writer(write)?;
         Ok(())
     }

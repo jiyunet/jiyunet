@@ -127,7 +127,8 @@ impl BinaryComponent for Hash {
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
         let &Hash(d) = self;
-        write.write(&d).map(|_| ()).map_err(|_| ())
+        write.write(&d)?;
+        Ok(())
     }
 
 }
@@ -281,12 +282,12 @@ impl BinaryComponent for Keypair {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
         use self::Keypair::*;
-        match read.read_u8().map_err(|_| DecodeError)? {
+        match read.read_u8()? {
             0x00 => {
                 let mut kbuf = [0; 64];
-                read.read(&mut kbuf).map_err(|_| DecodeError)?;
+                read.read(&mut kbuf)?;
                 let mut pbuf = [0; 32];
-                read.read(&mut pbuf).map_err(|_| DecodeError)?;
+                read.read(&mut pbuf)?;
                 Ok(Ed25519(kbuf, pbuf))
             },
             _ => Err(DecodeError)
@@ -299,12 +300,12 @@ impl BinaryComponent for Keypair {
 
         write.write_u8(match self {
             &Ed25519(_, _) => 0x00
-        }).map_err(|_| ())?;
+        })?;
 
         match self {
             &Ed25519(k, p) => {
-                write.write(&k).map_err(|_| ())?;
-                write.write(&p).map_err(|_| ())?;
+                write.write(&k)?;
+                write.write(&p)?;
             }
         }
 
@@ -379,10 +380,10 @@ impl BinaryComponent for ValidationKey {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
         use self::ValidationKey::*;
-        match read.read_u8().map_err(|_| DecodeError)? {
+        match read.read_u8()? {
             0x00 => {
                 let mut buf = [0; 32];
-                read.read(&mut buf).map_err(|_| DecodeError)?;
+                read.read(&mut buf)?;
                 Ok(Ed25519(buf))
             },
             _ => Err(DecodeError)
@@ -395,10 +396,10 @@ impl BinaryComponent for ValidationKey {
 
         write.write_u8(match self {
             &Ed25519(_) => 0x00
-        }).map_err(|_| ())?;
+        })?;
 
         match self {
-            &Ed25519(k) => write.write(&k).map(|_| ()).map_err(|_| ())?
+            &Ed25519(k) => write.write(&k).map(|_| ())?
         }
 
         Ok(())
@@ -462,11 +463,11 @@ impl Signature {
 impl BinaryComponent for Signature {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
-        match Scheme::from_specifier(read.read_u8().map_err(|_| DecodeError)?) {
+        match Scheme::from_specifier(read.read_u8()?) {
             Some(s) => match s {
                 Scheme::Ed25519 => {
                     let mut sd = [0; 64];
-                    read.read(&mut sd).map_err(|_| DecodeError)?;
+                    read.read(&mut sd)?;
                     let f = Fingerprint::from_reader(read)?;
                     Ok(Signature::Ed25519(sd, f))
                 }
@@ -478,7 +479,7 @@ impl BinaryComponent for Signature {
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
         match self {
             &Signature::Ed25519(t, f) => {
-                write.write(&t).map_err(|_| ())?;
+                write.write(&t)?;
                 f.to_writer(write)?;
             }
         }

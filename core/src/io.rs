@@ -11,7 +11,17 @@ use sig;
 use sig::Signed;
 
 /// Type alias for `to_writer`.
-pub type WrResult = Result<(), ()>;
+pub type WrResult = Result<(), EncodeError>;
+
+/// Type to represent encoding errors.
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct EncodeError;
+
+impl From<io::Error> for EncodeError {
+    fn from(_: io::Error) -> Self {
+        EncodeError
+    }
+}
 
 /// Defines something that is used to make up the DAG.  Does not have to be a standalone node
 /// (see `DagNode`) but does have to be able to have a standard representation as bytes.  We have
@@ -75,9 +85,9 @@ impl error::Error for DecodeError {
 impl BinaryComponent for String {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
-        let len = read.read_u64::<BigEndian>().map_err(|_| DecodeError)?;
+        let len = read.read_u64::<BigEndian>()?;
         let mut utf8 = vec![0; len as usize];
-        read.read(utf8.as_mut_slice()).map_err(|_| DecodeError)?;
+        read.read(utf8.as_mut_slice())?;
         match String::from_utf8(utf8) {
             Ok(s) => Ok(s),
             Err(_) => Err(DecodeError)
@@ -85,8 +95,8 @@ impl BinaryComponent for String {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u64::<BigEndian>(self.len() as u64).map_err(|_| ())?;
-        write.write(self.as_bytes()).map_err(|_| ())?;
+        write.write_u64::<BigEndian>(self.len() as u64)?;
+        write.write(self.as_bytes())?;
         Ok(())
     }
 
@@ -95,7 +105,7 @@ impl BinaryComponent for String {
 impl<T> BinaryComponent for Option<T> where T: BinaryComponent {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
-        match read.read_u8().map_err(|_| DecodeError)? {
+        match read.read_u8()? {
             0 => Ok(None),
             1 => Ok(Some(T::from_reader(read)?)),
             _ => Err(DecodeError)
@@ -104,7 +114,7 @@ impl<T> BinaryComponent for Option<T> where T: BinaryComponent {
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
 
-        write.write_u8(if self.is_some() { 1 } else { 0 }).map_err(|_| ())?;
+        write.write_u8(if self.is_some() { 1 } else { 0 })?;
         match self {
             &Some(ref t) => t.to_writer(write)?,
             &None => {}
@@ -120,7 +130,7 @@ impl<T> BinaryComponent for Vec<T> where T: BinaryComponent {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
 
-        let len = read.read_u64::<BigEndian>().map_err(|_| DecodeError)? as usize;
+        let len = read.read_u64::<BigEndian>()? as usize;
 
         let mut v = Vec::with_capacity(len);
         for _ in 0..len {
@@ -133,7 +143,7 @@ impl<T> BinaryComponent for Vec<T> where T: BinaryComponent {
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
 
-        write.write_u64::<BigEndian>(self.len() as u64).map_err(|_| ())?;
+        write.write_u64::<BigEndian>(self.len() as u64)?;
         for e in self {
             e.to_writer(write)?;
         }
@@ -148,12 +158,12 @@ impl BinaryComponent for [u8; 64] {
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
         let mut v = [0; 64];
-        read.read(&mut v).map_err(|_| DecodeError)?;
+        read.read(&mut v)?;
         Ok(v)
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write(self).map_err(|_| ())?;
+        write.write(self)?;
         Ok(())
     }
 
