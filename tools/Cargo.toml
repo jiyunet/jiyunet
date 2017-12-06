@@ -5,8 +5,14 @@ authors = ["treyzania <treyzania@gmail.com>"]
 
 [dependencies]
 jiyunet-core = { path = "../core" }
+jiyunet-dag = { path = "../dag" }
 rand = "0.3"
+time = "0.1"
 
 [[bin]]
 name = "jiyu-keygen"
 path = "keygen.rs"
+
+[[bin]]
+name = "jiyu-mkart"
+path = "mkart.rs"

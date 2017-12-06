@@ -64,6 +64,13 @@ pub struct Segment {
 
 impl Segment {
 
+    pub fn new_artifact_seg(ad: ArtifactData, ts: i64) -> Segment {
+        Segment {
+            timestamp: ts,
+            content: SegmentContent::Artifact(ad)
+        }
+    }
+
     /// Returns the actual segment content.
     pub fn content(&self) -> SegmentContent {
         self.content.clone()
