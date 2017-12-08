@@ -8,12 +8,12 @@ use segment::*;
 
 use DagNode;
 
-/// Main type of node on the dag.  Primary unit of time and validation.
+/// Block headers are lightweight peices of information that, when signed, can be passed around
+/// easily for coordinating validation between nodes, and for caching actual block data in-memory.
 ///
-/// Blocks have a header including their parent information.  They also contain a set of segments
-/// that represent the data actually stored in the blocks.  Segments are for the actual mid-layer
-/// validation logic.  One type of segments are artifact segments, which carry actual payload data
-/// in the content layer.  Artifact contents have no bearing on validation, only total size.
+/// As of writing, they consume approximately 140 bytes in-memory once parsed, and less than that
+/// when serialized.  This isn't counting signature data, which is another ~128 bytes, but that can
+/// be discarded once the block is confirmed locally.
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub struct BlockHeader {
 
@@ -22,6 +22,9 @@ pub struct BlockHeader {
 
     /// Millisecond UNIX time
     timestamp: i64,
+
+    /// Number of blocks before this one the can be explored by traversing the parents.
+    block_height: u64,
 
     /// The merkle root of the segments in the block.
     segments_merkle_root: Hash,
@@ -45,12 +48,14 @@ impl BinaryComponent for BlockHeader {
 
         let ver = read.read_u32::<BigEndian>()?;
         let ts = read.read_i64::<BigEndian>()?;
+        let bh = read.read_u64::<BigEndian>()?;
         let smr = Hash::from_reader(read)?;
         let pars = Vec::<Address>::from_reader(read)?;
 
         Ok(BlockHeader {
             version: ver,
             timestamp: ts,
+            block_height: bh,
             segments_merkle_root: smr,
             parents: pars
         })
@@ -61,6 +66,7 @@ impl BinaryComponent for BlockHeader {
 
         write.write_u32::<BigEndian>(self.version)?;
         write.write_i64::<BigEndian>(self.timestamp)?;
+        write.write_u64::<BigEndian>(self.block_height)?;
         self.segments_merkle_root.to_writer(write)?;
         self.parents.to_writer(write)?;
 
@@ -70,10 +76,24 @@ impl BinaryComponent for BlockHeader {
 
 }
 
+/// Main type of node on the dag.  Primary unit of time and validation.
+///
+/// Blocks have a header including their parent information.  They also contain a set of segments
+/// that represent the data actually stored in the blocks.  Segments are for the actual mid-layer
+/// validation logic.
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Block {
-    header: Signed<BlockHeader>,
-    body: Vec<Signed<Segment>>
+pub struct Block(Signed<BlockHeader>, Vec<Signed<Segment>>);
+
+impl Block {
+
+    pub fn get_header(&self) -> &Signed<BlockHeader> {
+        &self.0
+    }
+
+    pub fn get_segments(&self) -> &Vec<Signed<Segment>> {
+        &self.1
+    }
+
 }
 
 impl BinaryComponent for Block {
@@ -83,17 +103,14 @@ impl BinaryComponent for Block {
         let head = Signed::<BlockHeader>::from_reader(read)?;
         let body = Vec::<Signed<Segment>>::from_reader(read)?;
 
-        Ok(Block {
-            header: head,
-            body: body
-        })
+        Ok(Block(head, body))
 
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
 
-        self.header.to_writer(write)?;
-        self.body.to_writer(write)?;
+        self.0.to_writer(write)?;
+        self.1.to_writer(write)?;
 
         Ok(())
 
@@ -104,11 +121,11 @@ impl BinaryComponent for Block {
 impl DagNode for Block {
 
     fn version(&self) -> u32 {
-        self.clone().header.extract().version
+        self.clone().0.extract().version
     }
 
     fn timestamp(&self) -> i64 {
-        self.clone().header.extract().timestamp
+        self.clone().0.extract().timestamp
     }
 
 }

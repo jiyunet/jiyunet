@@ -11,8 +11,17 @@ pub mod io;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ValidationError {
-    DecodeError(core::Address), // Problem decoding data.
-    NodeNotFound(core::Address), // Node not found in db, try again later?
-    ComponentTooLarge(core::sig::Hash), // If something is too big to be allowed.
-    InsufficientCredits, // Identitiy doesn't have credits for some action.
+
+    // Problem decoding data.
+    DecodeError(core::Address),
+
+    // Node not found in db, try again later?
+    NodeNotFound(core::Address),
+
+    // If something is too big to be allowed.
+    ComponentTooLarge(core::sig::Hash),
+
+    // Identitiy doesn't have credits for some action.
+    InsufficientCredits
+
 }

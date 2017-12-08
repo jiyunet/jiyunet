@@ -1,4 +1,13 @@
-use std::collections::HashMap;
+//! This is the core of the validation code for Jiyunet.  It's highly unfinished, but it will end
+//! up looking not unlike the Ethereum validation code.  The first phase is where blocks only have
+//! their signatures and fingerprints validated (actual credit checking is ignored), before being
+//! added to the full queue, where the rest of the signature data is applied, then the changes to
+//! the blockchain state is committed to storage before the next block goes through the full check.
+//!
+//! It's based somewhat on the Parity validation code:
+//! * https://github.com/paritytech/parity/blob/master/ethcore/src/verification/verification.rs
+
+use std::collections::{HashMap, LinkedList};
 
 use core::Address;
 use core::io::BinaryComponent;
@@ -9,6 +18,8 @@ use core::sig::Signed;
 use dag::block;
 use dag::segment;
 
+use ValidationError;
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 struct IdentData {
     key: ValidationKey,
@@ -17,32 +28,34 @@ struct IdentData {
 
 type VBlock = Signed<block::Block>;
 
-#[derive(Clone, Eq, PartialEq)]
-struct ValdiationState {
-    pending: HashMap<Address, VBlock>,
-    idents: HashMap<Fingerprint, IdentData>
+#[derive(Clone)]
+struct BlockchainState {
+    idents: HashMap<Fingerprint, IdentData>,
 }
 
-/// Number of blocks that must be accepted before the base is moved up to the next safe block, any
-/// parial forks will hold back the "base" until they're resolved.
-const ACCEPTANCE_THRESHOLD: u64 = 5;
+impl BlockchainState {
+    fn find_identity(&self, fp: &Fingerprint) -> Option<IdentData> {
+        self.idents.get(fp).cloned()
+    }
+}
+
+#[derive(Clone)]
+struct ValdiationState {
+    history: LinkedList<(Address, VBlock)>,
+    stray_uncles: HashMap<Address, VBlock>,
+    data_state: BlockchainState
+}
 
 impl ValdiationState {
 
-    pub fn add_block(&mut self, block: VBlock) -> Result<(), BlockValidationError> {
-        self.pending.insert(Address::of_bincomp(&block), block);
+    pub fn verify_block(&mut self, block: VBlock) -> Result<(), ValidationError> {
         Ok(()) // TODO This isn't correct.  We need to actually check things.
     }
 
     pub fn find_key(&self, fp: Fingerprint) -> Option<ValidationKey> {
-        self.idents.get(&fp).map(|id| id.key)
+        self.data_state.idents.get(&fp).map(|id| id.key)
     }
 
-}
-
-enum BlockValidationError {
-    InsufficientCredits,
-    SigError(sig::SigVerificationError)
 }
 
 type SegmentCost = u64;
