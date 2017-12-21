@@ -1,8 +1,8 @@
 extern crate jiyunet_core as core;
 
+#[macro_use] extern crate clap;
 extern crate rand;
 
-use std::env;
 use std::fs;
 use std::path;
 
@@ -14,7 +14,14 @@ use core::sig;
 
 fn main() {
 
-    let dest = env::args().nth(1).unwrap_or("jiyu-keypair.bin".into());
+    let matches = clap_app!(myapp =>
+        (version: "0.1.0")
+        (author: "treyzania <treyzania@gmail.com>")
+        (about: "Generates a Jiyunet keypair.")
+        (@arg dest: "File to write to.  Default: jiyu-keypair.bin"))
+        .get_matches();
+
+    let dest = matches.value_of("dest").unwrap_or("jiyu-keypair.bin".into());
     let mut df = fs::File::create(path::PathBuf::from(dest.clone()).as_path())
                             .expect("unable to create destination file.");
 
