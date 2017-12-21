@@ -1,7 +1,8 @@
 extern crate jiyunet_core as core;
 extern crate jiyunet_dag as dag;
 
-use std::env;
+#[macro_use] extern crate clap;
+
 use std::fs;
 use std::io::Read;
 
@@ -14,9 +15,22 @@ mod util;
 
 fn main() {
 
-    // Lazy argument parsing.
-    let src = env::args().nth(1).expect("usage: jiyu-mkart <source> <dest>");
-    let dest = env::args().nth(2).expect("usage: jiyu-mkart <source> <dest>");
+    let matches = clap_app!(myapp =>
+        (version: "0.1.0")
+        (author: "treyzania <treyzania@gmail.com>")
+        (about: "Packages an file into a signed Jiyunet segment.  Note that the segment is not likely to be valid on the blockchain due to noncing, etc.")
+        (@arg src: +required "Source file to package.")
+        (@arg dest: +required "Output file.")
+        (@arg artifact_type: -a +takes_value "Artifact type.  Default: 0x0000"))
+        .get_matches();
+
+    let src = matches.value_of("src").unwrap();
+    let dest = matches.value_of("dest").unwrap();
+    let atype = match matches.value_of("artifact_type").map(str::parse) {
+        Some(Ok(p)) => p,
+        Some(Err(_)) => panic!("unable to parse artifact type as number"),
+        None => 0x0000
+    };
 
     // Read the source data, convert to artifact.
     let data = {
@@ -26,7 +40,7 @@ fn main() {
         v
     };
 
-    let art = artifact::ArtifactData::new(0x0000, data);
+    let art = artifact::ArtifactData::new(atype, data);
     let seg = segment::Segment::new_artifact_seg(art, util::timestamp());
 
     // Load the keypair, then sign.
