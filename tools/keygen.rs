@@ -14,7 +14,7 @@ use core::sig;
 
 fn main() {
 
-    let matches = clap_app!(myapp =>
+    let matches = clap_app!(jiyu_keygen =>
         (version: "0.1.0")
         (author: "treyzania <treyzania@gmail.com>")
         (about: "Generates a Jiyunet keypair.")

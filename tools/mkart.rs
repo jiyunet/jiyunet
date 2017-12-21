@@ -15,7 +15,7 @@ mod util;
 
 fn main() {
 
-    let matches = clap_app!(myapp =>
+    let matches = clap_app!(jiyu_mkart =>
         (version: "0.1.0")
         (author: "treyzania <treyzania@gmail.com>")
         (about: "Packages an file into a signed Jiyunet segment.  Note that the segment is not likely to be valid on the blockchain due to noncing, etc.")
