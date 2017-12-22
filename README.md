@@ -25,6 +25,19 @@ Further documentation can be found in my brain.
 
 * `pylib` : Python library bindings
 
+* `tools` : Misc CLI tools, used for testing various components of Jiyunet.
+
+### tools
+
+* `jiyu-keygen` : Generates a Ed25519 keypair used for creating artifacts, etc.
+
+* `jiyu-mkart` : Makes an signed artifact segment of a given file.
+
+I will be developing more as we need them.  They're mainly for testing (as I
+mentioned), but they will end up being used practically.  Pass `--help` to the
+commands to see usage, or just read the source code because they're both like
+50 lines of code anyways.
+
 ## Usage
 
 ### Building
