@@ -155,6 +155,7 @@ mod test {
         let block = BlockHeader {
             version: 42,
             timestamp: 1337,
+            block_height: 64,
             segments_merkle_root: Hash::of_slice(&[1, 2, 3]),
             parents: vec![],
         };
