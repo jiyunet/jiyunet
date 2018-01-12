@@ -10,6 +10,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 
 pub mod io;
 pub mod sig;
+pub mod blobs;
 
 use io::{BinaryComponent, DecodeError, WrResult};
 use sig::Hash;
