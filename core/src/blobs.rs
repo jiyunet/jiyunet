@@ -52,7 +52,7 @@ impl<L: BinaryComponent + Into<usize> + From<usize>> BinaryComponent for Blob<L>
 
     fn from_reader<R: ReadBytesExt>(read: &mut R) -> Result<Self, DecodeError> {
         let len = L::from_reader(read)?.into();
-        let mut body = Vec::with_capacity(len);
+        let mut body = vec![0; len];
         read.read(&mut body)?;
         Ok(Blob(body, ::std::marker::PhantomData))
     }
