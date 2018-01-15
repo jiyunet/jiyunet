@@ -10,8 +10,7 @@ impl BinaryComponent for u8 {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u8(*self)?;
-        Ok(())
+        write.write_u8(*self).map_err(Into::into)
     }
 
 }
@@ -23,8 +22,7 @@ impl BinaryComponent for u16 {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u16::<BigEndian>(*self)?;
-        Ok(())
+        write.write_u16::<BigEndian>(*self).map_err(Into::into)
     }
 
 }
@@ -36,8 +34,7 @@ impl BinaryComponent for u32 {
     }
 
     fn to_writer<W: WriteBytesExt>(&self, write: &mut W) -> WrResult {
-        write.write_u32::<BigEndian>(*self)?;
-        Ok(())
+        write.write_u32::<BigEndian>(*self).map_err(Into::into)
     }
 
 }
