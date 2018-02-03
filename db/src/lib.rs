@@ -2,7 +2,6 @@ extern crate jiyunet_core as core;
 extern crate jiyunet_dag as dag;
 
 pub mod fs;
-pub mod ipfs;
 
 use core::Address;
 use dag::DagNode;

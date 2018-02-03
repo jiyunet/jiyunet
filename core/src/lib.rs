@@ -40,6 +40,10 @@ impl Address {
         Address::new(t.get_hash())
     }
 
+    pub fn to_string(&self) -> String {
+        unimplemented!();
+    }
+
 }
 
 impl BinaryComponent for Address {

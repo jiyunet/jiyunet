@@ -10,6 +10,7 @@ jiyunet-db = { path = "../db" }
 jiyunet-dht = { path = "../dht" }
 jiyunet-validation = { path = "../validation" }
 clap = "2.27.1"
+ipfsapi = "0.1.7"
 
 [[bin]]
 name = "jiyud"

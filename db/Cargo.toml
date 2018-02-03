@@ -6,4 +6,3 @@ authors = ["treyzania <treyzania@gmail.com>"]
 [dependencies]
 jiyunet-core = { path = "../core" }
 jiyunet-dag = { path = "../dag" }
-ipfsapi = "0.1.7"
